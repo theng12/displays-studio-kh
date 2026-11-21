@@ -143,8 +143,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("DDC_CHECK {name}: {original}/{max} -> {target}/{max} -> {original}/{max} (read back)");
             return Ok(());
         }
-        [flag, dir] if flag == "--webview-check" && std::path::Path::new(dir).is_dir() => Some(PathBuf::from(dir)),
-        _ => return Err("Expected --webview-check <isolated data directory> or --ddc-check <exact monitor name>.".into()),
+        // --test-mode is the same isolated hidden run under the name the studio scanner looks for.
+        [flag, dir] if (flag == "--webview-check" || flag == "--test-mode") && std::path::Path::new(dir).is_dir() => Some(PathBuf::from(dir)),
+        _ => return Err("Expected --webview-check (or --test-mode) <isolated data directory> or --ddc-check <exact monitor name>.".into()),
     };
 
     let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default())
