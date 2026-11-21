@@ -1,7 +1,11 @@
 #!/bin/bash
 # The release path: this Mac builds, 1301 publishes. Nothing here writes the feed.
 #
-#   packaging/release-push.sh <feed-app-id> <shown name> <version> <dmg> <changelog>
+#   packaging/release-push.sh <feed-app-id> <shown name> <version> <dmg> <changelog> <tagline>
+#
+# The tagline is the one plain sentence the Launcher shows on the app's card; every release
+# carries one. `--type` is deliberately not passed: the Launcher reads it only from 0.1.78, and an
+# omitted field carries forward, so Utilities add it on their next publish after that ships.
 #
 # Copies the DMG and its changelog to the release host's staging folder and runs `khu publish`
 # there, then reads the served feed back and prints the version it now offers.
@@ -13,8 +17,9 @@ set -euo pipefail
 HOST="${KHU_RELEASE_HOST:-vengtheng@100.82.91.102}"
 KEY="${KHU_RELEASE_KEY:-$HOME/.ssh/id_ed25519_gateway1301}"
 STAGE="${KHU_RELEASE_STAGE:-Library/KHUpdater/feed-incoming-$(date +%Y%m%d)}"
-[ $# -eq 5 ] || { echo "usage: $0 <feed-app-id> <shown name> <version> <dmg> <changelog>" >&2; exit 2; }
-APP="$1"; NAME="$2"; VERSION="$3"; DMG="$4"; LOG="$5"
+[ $# -eq 6 ] || { echo "usage: $0 <feed-app-id> <shown name> <version> <dmg> <changelog> <tagline>" >&2; exit 2; }
+APP="$1"; NAME="$2"; VERSION="$3"; DMG="$4"; LOG="$5"; TAGLINE="$6"
+[ -n "$TAGLINE" ] || { echo "the feed row needs a tagline: one plain sentence" >&2; exit 2; }
 [ -f "$DMG" ] || { echo "no such DMG: $DMG" >&2; exit 2; }
 [ -f "$LOG" ] || { echo "no such changelog: $LOG" >&2; exit 2; }
 BASE=$(basename "$DMG")
@@ -37,11 +42,11 @@ NEW_ARGS=""
 
 "${SSH[@]}" "K=\$HOME/Library/KHUpdater; \"\$K/bin/khu\" publish --feed \"\$K/feed\" --key \"\$K/keys/private.key\" \
   --app '$APP' --version '$VERSION' --artifact \"\$HOME/$STAGE/$BASE\" --changelog \"\$HOME/$STAGE/changelogs/$APP.md\" \
-  $HOLD_ARGS $NEW_ARGS"
+  --tagline '$TAGLINE' $HOLD_ARGS $NEW_ARGS"
 
-/usr/bin/python3 -I - "$HOST" "$APP" "$VERSION" "$DMG" "${KHU_HOLD_URL:-}" <<'PY'
+/usr/bin/python3 -I - "$HOST" "$APP" "$VERSION" "$DMG" "${KHU_HOLD_URL:-}" "$TAGLINE" <<'PY'
 import base64, hashlib, json, pathlib, sys, urllib.parse, urllib.request
-host, app, want, artifact, hold = sys.argv[1].split("@")[-1], sys.argv[2], sys.argv[3], pathlib.Path(sys.argv[4]), sys.argv[5]
+host, app, want, artifact, hold, tagline = sys.argv[1].split("@")[-1], sys.argv[2], sys.argv[3], pathlib.Path(sys.argv[4]), sys.argv[5], sys.argv[6]
 feed = json.loads(base64.b64decode(json.load(urllib.request.urlopen(f"http://{host}:8790/release.json", timeout=20))["feed"]))
 entry = feed["apps"].get(app, {})
 got = entry.get("version")
@@ -49,7 +54,9 @@ previous = (feed.get("previous") or {}).get(app, {}).get("version")
 print(f"feed offers {app} {got} (previous {previous}); expected {want}")
 print(f"served artifact sha256 {entry.get('sha256')} bytes {entry.get('bytes')}")
 print(f"served holdURL {entry.get('holdURL')!r}; expected {hold or None!r}")
+print(f"served tagline {entry.get('tagline')!r}; expected {tagline!r}")
 assert got == want, "served version differs"
+assert entry.get("tagline") == tagline, "served tagline differs"
 assert (entry.get("holdURL") or "") == hold, "served holdURL differs"
 local_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
 assert entry.get("sha256") == local_sha, "served feed hash differs from local artifact"

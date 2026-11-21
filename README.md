@@ -27,7 +27,8 @@ Build, sign and package here, then publish through the release host:
 
 ```sh
 bash scripts/build-mac.sh
-packaging/release-push.sh displays-studio "Displays Studio KH" 0.1.0 "dist/Displays Studio KH-0.1.0.dmg" CHANGELOG.md
+packaging/release-push.sh displays-studio "Displays Studio KH" 0.1.0 \
+  "dist/Displays Studio KH-0.1.0.dmg" CHANGELOG.md "Set the brightness of external monitors from the menu bar."
 ```
 
 The first writes `dist/Displays Studio KH-<version>.dmg` signed with the shared KH identity and a
