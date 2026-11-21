@@ -1,0 +1,45 @@
+:root {
+  color-scheme: light dark;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif;
+  --paper: #f6f8fa; --ink: #17242b; --muted: #4b5b64; --line: #cbd5da;
+  --control: #fff; --accent: #006b70; --tint: #dceef0; --error: #97391f;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #1a2329; --ink: #e9f1f3; --muted: #b5c2c8; --line: #415259;
+    --control: #242f35; --accent: #77d7d5; --tint: #24444a; --error: #ffad96; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--paper); color: var(--ink); }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 22px; letter-spacing: -.025em; }
+h2 { font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
+p, kbd { color: var(--muted); }
+button, input { font: inherit; accent-color: var(--accent); }
+button { cursor: pointer; color: inherit; background: var(--control); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 8px; min-height: 28px; }
+button:hover:not(:disabled), button:active:not(:disabled) { background: var(--tint); }
+button:disabled, input:disabled { opacity: .65; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: var(--tint); color: var(--ink); }
+main { margin-top: 12px; }
+section { border-top: 1px solid var(--line); padding: 12px 0; display: grid; gap: 6px; }
+.level { display: grid; grid-template-columns: 64px minmax(60px, 1fr) 4ch; gap: 8px; align-items: center; }
+.level input { width: 100%; margin: 0; min-height: 22px; }
+.level span { min-width: 0; }
+.level output { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+#status:not(:empty) { margin: 4px 0 12px; }
+#status[data-error] { color: var(--error); }
+footer { border-top: 1px solid var(--line); padding-top: 12px; }
+footer label { display: flex; align-items: center; gap: 6px; width: fit-content; }
+footer input { margin: 0; }
+footer p { margin: 4px 0 12px; font-size: 12px; }
+kbd { font: inherit; white-space: nowrap; }
+.version { color: var(--muted); border-radius: 100px; }
+dialog { width: min(340px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--paper); color: var(--ink); padding: 16px; }
+dialog::backdrop { background: rgb(3 17 23 / .55); }
+dialog ul { margin: 12px 0 16px; padding-left: 20px; }
+dialog li + li { margin-top: 6px; }
+dialog form { text-align: right; }
+#news-version { color: var(--muted); font-weight: 400; }

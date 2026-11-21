@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Displays Studio KH",
+  "version": "0.1.0",
+  "identifier": "app.displaysstudiokh.desktop",
+  "build": { "frontendDist": "../ui-shell" },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": true,
+    "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self'" }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "icon": ["icons/icon.png", "icons/icon.icns"],
+    "resources": { "vendor/ddc-macos/LICENSE": "ThirdPartyLicenses/ddc-macos-MIT.txt" },
+    "macOS": { "minimumSystemVersion": "13.0" }
+  }
+}

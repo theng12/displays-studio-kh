@@ -1,0 +1,6 @@
+{
+  "identifier": "panel",
+  "description": "Only the local panel can listen for updates from the native menu and shortcuts.",
+  "windows": ["main"],
+  "permissions": ["core:event:allow-listen"]
+}
