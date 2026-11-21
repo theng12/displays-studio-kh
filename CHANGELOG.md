@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.2 — 2026-11-22
+
+- Only one copy can run: launching it again opens the panel instead of adding a second menu-bar icon.
+
 ## 0.1.1 — 2026-11-22
 
 - Use the Mac's own F1/F2 brightness keys for external displays, once you allow Accessibility.

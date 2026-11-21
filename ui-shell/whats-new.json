@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.2",
+    "date": "2026-11-22",
+    "items": [
+      "Only one copy can run: launching it again opens the panel instead of adding a second menu-bar icon."
+    ]
+  },
+  {
     "version": "0.1.1",
     "date": "2026-11-22",
     "items": [

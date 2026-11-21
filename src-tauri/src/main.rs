@@ -139,8 +139,8 @@ fn close_panel(window: tauri::WebviewWindow) -> Result<(), String> {
 
 fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWindow> {
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("Displays Studio KH").inner_size(370.0, 370.0).min_inner_size(300.0, 260.0)
-        .visible(!hidden).focused(!hidden).maximizable(false)
+        .title("Displays Studio KH").inner_size(430.0, 660.0).min_inner_size(380.0, 460.0)
+        .visible(!hidden).focused(!hidden).maximizable(false).resizable(true)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     #[cfg(feature = "webview-check")]
     let builder = if let Some(dir) = app.state::<Check>().0.as_ref() {

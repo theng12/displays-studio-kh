@@ -40,7 +40,9 @@ function reconcile(changed) {
 }
 
 function updateAccessNote() {
-  accessNote.hidden = !(keys.checked && !keysTrusted);
+  // Show the way to the setting whenever macOS has not granted it, so the sentence is never a
+  // dead end with no button beside it.
+  accessNote.hidden = keysTrusted;
 }
 
 function allDisplaysSection() {

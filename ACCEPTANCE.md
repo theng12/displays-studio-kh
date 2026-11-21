@@ -21,6 +21,7 @@ There is no create/editor page: the app is one panel of sliders. The rows below 
 | One slider moves every display and shows only what each monitor confirmed | `hardware::tests::two_displays_get_their_own_scaled_writes`, `::a_display_that_fails_to_read_is_failed_not_changed`, `::a_display_that_does_not_confirm_is_failed_not_changed` |
 | Start at login installs one LaunchAgent and says so when it cannot | `login::tests::plist_names_the_label_and_program`, `::missing_program_says_install_first_without_touching_launchd` |
 | A first run explains the app, Accessibility and a monitor with no DDC | `#intro` card, dismissed once per user (`displays-intro-seen`), asserted present by the hidden UI check |
+| Only one copy can run; a second launch opens the panel | `LSMultipleInstancesProhibited` in the bundle, asserted by `scripts/build-mac.sh`'s Info.plist check; the live re-launch itself is unproven until an install is exercised |
 | A change the monitor does not confirm is refused, not reported as done | `hardware::write` re-reads twice, then errors; `cargo test` covers the range maths |
 | Percentages map onto whatever range the monitor reports | `hardware::tests::scales_to_the_monitors_reported_range` |
 | Bad input never reaches the hardware | `hardware::tests::rejects_unknown_setting_without_accessing_hardware` |

@@ -72,6 +72,9 @@ plist = {
     "LSMinimumSystemVersion": "13.0",
     "LSRequiresCarbon": True,
     "LSUIElement": True,
+    # One menu-bar icon only: a second launch activates the running copy (RunEvent::Reopen shows
+    # the panel) instead of starting another instance with its own tap and its own DDC writes.
+    "LSMultipleInstancesProhibited": True,
     "NSHighResolutionCapable": True,
 }
 with open(sys.argv[1], "wb") as stream:
@@ -103,7 +106,8 @@ assert plist.get("CFBundleIdentifier") == "app.displaysstudiokh.desktop", plist.
 assert plist.get("CFBundleShortVersionString") == version, plist.get("CFBundleShortVersionString")
 assert plist.get("CFBundleName") == "Displays Studio KH", plist.get("CFBundleName")
 assert plist.get("LSUIElement") is True, "LSUIElement must be true (menu-bar app)"
-print("Info.plist: id, version, name, LSUIElement ok")
+assert plist.get("LSMultipleInstancesProhibited") is True, "a second launch must not start a second instance"
+print("Info.plist: id, version, name, LSUIElement, single-instance ok")
 PY
 codesign --verify --deep --strict "$app" || fail "the app's signature is broken"
 
