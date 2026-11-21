@@ -13,8 +13,9 @@ There is no create/editor page: the app is one panel of sliders. The rows below 
 | The panel lists each external display, and only external ones | `scripts/verify-hidden.py` asserts the panel's `main h2` list contains `MSI MP273` on this Mac |
 | Brightness is a slider that reads the monitor's real value | `verify-hidden.py` asserts the Brightness slider shows 31 for MSI MP273; `cargo run --example probe` reads 0x10 = 31/100 |
 | Moving the slider changes the monitor, confirms it and reports the confirmed value | `displays-studio-kh --ddc-check 'MSI MP273'`: 31 → 36 → 31 read back, exit 0 |
-| Contrast appears only where a read succeeds | `verify-hidden.py` sees Contrast at 50 (0x12); `hardware::scan` drops any control whose read fails |
+| Contrast appears only where a read succeeds | `verify-hidden.py` sees Contrast at 50 (0x12) |
 | Volume appears only where a read succeeds | `verify-hidden.py` sees Volume at 98 (0x62) |
+| A setting the monitor does not report says "Not reported" and cannot be dragged | `hardware::tests::a_setting_the_monitor_did_not_report_is_never_a_number`; `hardware::row` returns `percent: None`, and `ui-shell/panel.js` draws no slider for it |
 | A change the monitor does not confirm is refused, not reported as done | `hardware::write` re-reads twice, then errors; `cargo test` covers the range maths |
 | Percentages map onto whatever range the monitor reports | `hardware::tests::scales_to_the_monitors_reported_range` |
 | Bad input never reaches the hardware | `hardware::tests::rejects_unknown_setting_without_accessing_hardware` |

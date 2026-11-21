@@ -16,7 +16,9 @@ pub struct Display {
 #[derive(Clone, Copy, Serialize)]
 pub struct Level {
     code: u8,
-    percent: u16,
+    /// None = the monitor did not report this setting. It is never shown as a number, and the
+    /// panel offers no slider for it, so nothing can be written from an unknown value.
+    percent: Option<u16>,
 }
 
 fn monitors() -> Result<Vec<Monitor>, String> {
@@ -43,7 +45,15 @@ fn read(monitor: &mut Monitor, code: u8) -> Result<(u16, u16), String> {
 }
 
 fn level(code: u8, value: u16, max: u16) -> Level {
-    Level { code, percent: ((u32::from(value) * 100 + u32::from(max) / 2) / u32::from(max)) as u16 }
+    Level { code, percent: Some(((u32::from(value) * 100 + u32::from(max) / 2) / u32::from(max)) as u16) }
+}
+
+/// A row per feature: the monitor's own reading, or an explicit "not reported".
+fn row(code: u8, reading: Result<(u16, u16), String>) -> Level {
+    match reading {
+        Ok((value, max)) => level(code, value, max),
+        Err(_) => Level { code, percent: None },
+    }
 }
 
 fn from_percent(percent: u16, max: u16) -> u16 {
@@ -72,9 +82,7 @@ pub fn scan() -> Result<Vec<Display>, String> {
     Ok(active.into_iter().map(CGDisplay::new).filter(|d| !d.is_builtin()).map(|d| {
         let monitor = monitors.iter_mut().find(|m| m.handle().id == d.id);
         let (name, levels) = match monitor {
-            Some(m) => (m.description(), FEATURES.iter().filter_map(|&code| {
-                read(m, code).ok().map(|(value, max)| level(code, value, max))
-            }).collect()),
+            Some(m) => (m.description(), FEATURES.iter().map(|&code| row(code, read(m, code))).collect()),
             None => (format!("External display {:04x}:{:04x}", d.vendor_number(), d.model_number()), Vec::new()),
         };
         Display { id: id(d), name, levels }
@@ -151,8 +159,20 @@ mod tests {
     fn scales_to_the_monitors_reported_range() {
         assert_eq!(from_percent(100, u16::MAX), u16::MAX);
         assert_eq!(from_percent(50, 255), 128);
-        assert_eq!(level(BRIGHTNESS, 128, 255).percent, 50);
+        assert_eq!(level(BRIGHTNESS, 128, 255).percent, Some(50));
         assert_eq!(from_percent(0, 1), 0);
+    }
+
+    #[test]
+    fn a_setting_the_monitor_did_not_report_is_never_a_number() {
+        // The stub is a 0x62 read that failed: the panel must say "Not reported" and draw no
+        // slider, because a slider showing 0 would be a value nobody read.
+        let volume = row(0x62, Err("The monitor didn't return this setting: no reply".into()));
+        assert_eq!(volume.code, 0x62);
+        assert_eq!(volume.percent, None);
+        // And no write can start from an unknown state: set() reads first and returns before
+        // write() when the read fails, so set_vcp_feature is never reached.
+        assert!(set("no monitor", 0x62, 0).is_err());
     }
 
     #[test]

@@ -27,9 +27,16 @@ function showLevel(slider, output, percent) {
 }
 
 function control(display, level) {
+  const label = element('span', features[level.code]);
+  if (level.percent === null) {
+    // Nothing was read, so nothing is shown as a value and nothing can be dragged.
+    const row = element('div');
+    row.className = 'level unreported';
+    row.append(label, element('span', 'Not reported'));
+    return row;
+  }
   const row = element('label');
   row.className = 'level';
-  const label = element('span', features[level.code]);
   const slider = element('input');
   slider.type = 'range';
   slider.min = 0;
@@ -131,6 +138,7 @@ async function initialise() {
       if (payload.Err) { status(payload.Err, true); return; }
       const { changed, message, failed } = payload.Ok;
       for (const [display, level] of changed) {
+        if (level.percent === null) continue;
         const slider = [...list.querySelectorAll('input')].find((input) => input.dataset.display === display && Number(input.dataset.code) === level.code);
         if (slider) showLevel(slider, slider.nextElementSibling, level.percent);
       }
