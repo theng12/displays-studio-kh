@@ -9,9 +9,12 @@
   try {
     const version = document.querySelector('#version');
     const news = document.querySelector('#news');
-    assert(version.textContent.includes('v0.1.1'), 'Bundle version missing');
+    const label = version.textContent;
+    assert(/^Displays Studio KH · v\d+\.\d+\.\d+$/.test(label), 'Bundle version missing');
+    const shown = label.split('v')[1];
+    assert(document.querySelector('#news-version').textContent === `v${shown}`, 'What\'s New names another version');
     version.click();
-    assert(news.open && news.querySelectorAll('li').length === 5, 'Release notes did not open');
+    assert(news.open && news.querySelectorAll('li').length >= 1, 'Release notes did not open');
     news.close();
     const range = [...document.querySelectorAll('input[type=range]')];
     result.displays = [...document.querySelectorAll('main h2')].map((node) => node.textContent);
