@@ -1,5 +1,13 @@
 # What's New
 
+## 0.1.1 — 2026-11-22
+
+- Use the Mac's own F1/F2 brightness keys for external displays, once you allow Accessibility.
+- Move every display together with one slider.
+- Start automatically when you log in, with a switch in the panel.
+- A first-run explanation says what the app does and what to do when a monitor does not answer.
+- A setting the monitor does not report now says "Not reported" instead of showing 0.
+
 ## 0.1.0 — 2026-11-21
 
 - Change the brightness of compatible external monitors from the menu bar.

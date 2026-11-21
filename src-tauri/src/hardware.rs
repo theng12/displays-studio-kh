@@ -89,18 +89,82 @@ pub fn scan() -> Result<Vec<Display>, String> {
     }).collect())
 }
 
+/// One monitor's write, from the value it reports to the value it confirms.
+fn set_one(monitor: &mut Monitor, code: u8, percent: u16) -> Result<Level, String> {
+    let (current, max) = read(monitor, code)?;
+    let target = from_percent(percent, max);
+    if target == current {
+        return Ok(level(code, current, max));
+    }
+    write(monitor, code, target, max)
+}
+
 pub fn set(display: &str, code: u8, percent: u16) -> Result<Level, String> {
     if !FEATURES.contains(&code) || percent > 100 {
         return Err("Choose a supported setting between 0% and 100%.".into());
     }
     let mut monitor = monitors()?.into_iter().find(|m| id(m.handle()) == display)
         .ok_or("This monitor isn't responding. Reconnect it and refresh.")?;
-    let (current, max) = read(&mut monitor, code)?;
-    let target = from_percent(percent, max);
-    if target == current {
-        return Ok(level(code, current, max));
+    set_one(&mut monitor, code, percent)
+}
+
+#[derive(Clone, Serialize)]
+pub struct All {
+    changed: Vec<(String, Level)>,
+    message: String,
+    failed: bool,
+}
+
+/// A real or fake monitor: the id is captured with the handle so a write can never be credited
+/// to another display.
+trait Target {
+    fn id(&self) -> String;
+    fn apply(&mut self, code: u8, percent: u16) -> Result<Level, String>;
+}
+
+struct HardwareTarget {
+    id: String,
+    monitor: Monitor,
+}
+
+impl Target for HardwareTarget {
+    fn id(&self) -> String { self.id.clone() }
+    fn apply(&mut self, code: u8, percent: u16) -> Result<Level, String> {
+        set_one(&mut self.monitor, code, percent)
     }
-    write(&mut monitor, code, target, max)
+}
+
+/// Every external display at once. Reports only what each target confirmed.
+fn apply_all(targets: &mut [impl Target], code: u8, percent: u16) -> All {
+    let mut changed = Vec::new();
+    let mut failed = 0;
+    for target in targets {
+        match target.apply(code, percent) {
+            Ok(value) => changed.push((target.id(), value)),
+            Err(_) => failed += 1,
+        }
+    }
+    let (message, error) = summary(changed.len(), failed, "displays");
+    All { changed, message, failed: error }
+}
+
+pub fn set_all(code: u8, percent: u16) -> Result<All, String> {
+    if !FEATURES.contains(&code) || percent > 100 {
+        return Err("Choose a supported setting between 0% and 100%.".into());
+    }
+    let mut targets: Vec<HardwareTarget> = monitors()?.into_iter()
+        .map(|m| HardwareTarget { id: id(m.handle()), monitor: m })
+        .collect();
+    Ok(apply_all(&mut targets, code, percent))
+}
+
+/// One sentence for a batch result, and whether it counts as a failure.
+fn summary(changed: usize, failed: usize, what: &str) -> (String, bool) {
+    match (changed, failed) {
+        (0, 0) => (format!("No external {what} reported this control."), true),
+        (_, 0) => (format!("Set on all {changed} {what} that reported it."), false),
+        (count, _) => (format!("Set on {count} of {} {what}. Refresh to check the rest.", count + failed), true),
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -154,6 +218,8 @@ pub fn verify_write(name: &str) -> Result<(u16, u16, u16), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[test]
     fn scales_to_the_monitors_reported_range() {
@@ -179,5 +245,76 @@ mod tests {
     fn rejects_unknown_setting_without_accessing_hardware() {
         assert!(set("no monitor", 0x60, 50).is_err());
         assert!(set("no monitor", BRIGHTNESS, 101).is_err());
+    }
+
+    struct FakeTarget {
+        id: String,
+        max: u16,
+        fail_read: bool,
+        fail_confirm: bool,
+        writes: Rc<RefCell<Vec<(String, u8, u16)>>>,
+    }
+
+    impl Target for FakeTarget {
+        fn id(&self) -> String { self.id.clone() }
+        fn apply(&mut self, code: u8, percent: u16) -> Result<Level, String> {
+            if self.fail_read { return Err("read failed".into()); }
+            let target = from_percent(percent, self.max);
+            self.writes.borrow_mut().push((self.id.clone(), code, target));
+            if self.fail_confirm { return Err("confirm failed".into()); }
+            Ok(level(code, target, self.max))
+        }
+    }
+
+    fn fake(id: &str, max: u16, read: bool, confirm: bool, writes: &Rc<RefCell<Vec<(String, u8, u16)>>>) -> FakeTarget {
+        FakeTarget { id: id.into(), max, fail_read: !read, fail_confirm: !confirm, writes: Rc::clone(writes) }
+    }
+
+    #[test]
+    fn two_displays_get_their_own_scaled_writes() {
+        let writes = Rc::new(RefCell::new(Vec::new()));
+        let mut targets = [
+            fake("display-1-aaaa-bbbb-1111", 100, true, true, &writes),
+            fake("display-2-cccc-dddd-2222", 255, true, true, &writes),
+        ];
+        let all = apply_all(&mut targets, BRIGHTNESS, 50);
+        assert!(!all.failed);
+        assert_eq!(all.changed.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(),
+                   vec!["display-1-aaaa-bbbb-1111", "display-2-cccc-dddd-2222"]);
+        assert_eq!(all.changed[0].1.percent, Some(50));
+        assert_eq!(all.changed[1].1.percent, Some(50));
+        assert_eq!(*writes.borrow(), vec![
+            ("display-1-aaaa-bbbb-1111".into(), BRIGHTNESS, 50),
+            ("display-2-cccc-dddd-2222".into(), BRIGHTNESS, 128),
+        ]);
+    }
+
+    #[test]
+    fn a_display_that_fails_to_read_is_failed_not_changed() {
+        let writes = Rc::new(RefCell::new(Vec::new()));
+        let mut targets = [
+            fake("unreadable", 100, false, true, &writes),
+            fake("readable", 255, true, true, &writes),
+        ];
+        let all = apply_all(&mut targets, 0x12, 50);
+        assert!(all.failed);
+        assert_eq!(all.changed.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), vec!["readable"]);
+        assert_eq!(*writes.borrow(), vec![("readable".into(), 0x12, 128)]);
+    }
+
+    #[test]
+    fn a_display_that_does_not_confirm_is_failed_not_changed() {
+        let writes = Rc::new(RefCell::new(Vec::new()));
+        let mut targets = [
+            fake("unconfirmed", 100, true, false, &writes),
+            fake("confirmed", 255, true, true, &writes),
+        ];
+        let all = apply_all(&mut targets, 0x62, 50);
+        assert!(all.failed);
+        assert_eq!(all.changed.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), vec!["confirmed"]);
+        assert_eq!(*writes.borrow(), vec![
+            ("unconfirmed".into(), 0x62, 50),
+            ("confirmed".into(), 0x62, 128),
+        ]);
     }
 }

@@ -1,4 +1,6 @@
+mod brightness_keys;
 mod hardware;
+mod login;
 
 use std::{path::PathBuf, sync::{Arc, Mutex}};
 use tauri::{menu::{Menu, MenuItem, PredefinedMenuItem}, tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, ActivationPolicy, AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
@@ -39,12 +41,28 @@ fn keys() -> [Shortcut; 2] {
     [Shortcut::new(mods, Code::BracketRight), Shortcut::new(mods, Code::BracketLeft)]
 }
 
-fn pref_file(app: &AppHandle) -> Result<PathBuf, String> {
+#[derive(Default)]
+struct Keys(Mutex<brightness_keys::Status>);
+
+fn pref_file(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     #[cfg(feature = "webview-check")]
     if let Some(test) = app.state::<Check>().0.as_ref() {
-        return Ok(test.join("brightness-shortcuts"));
+        return Ok(test.join(name));
     }
-    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("brightness-shortcuts"))
+    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join(name))
+}
+
+/// A switch is on unless the user turned it off: absent preference means on.
+fn pref_on(app: &AppHandle, name: &str) -> bool {
+    pref_file(app, name).ok().and_then(|path| std::fs::read_to_string(path).ok()).as_deref() != Some("off")
+}
+
+fn save_pref(app: &AppHandle, name: &str, on: bool) -> Result<(), String> {
+    pref_file(app, name).and_then(|path| {
+        std::fs::create_dir_all(path.parent().expect("preference directory"))
+            .and_then(|()| std::fs::write(path, if on { "on" } else { "off" }))
+            .map_err(|e| e.to_string())
+    })
 }
 
 fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
@@ -59,10 +77,12 @@ fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
 }
 
 #[tauri::command]
-fn panel_info(app: AppHandle) -> (String, ShortcutStatus, &'static str) {
+fn panel_info(app: AppHandle) -> (String, ShortcutStatus, login::Status, brightness_keys::Status, &'static str) {
     (
         app.package_info().version.to_string(),
         app.state::<Shortcuts>().0.lock().unwrap().clone(),
+        login::Status { enabled: login::enabled(), error: None },
+        app.state::<Keys>().0.lock().unwrap().clone(),
         include_str!("../../ui-shell/whats-new.json"),
     )
 }
@@ -71,16 +91,45 @@ fn panel_info(app: AppHandle) -> (String, ShortcutStatus, &'static str) {
 fn set_shortcuts(app: AppHandle, enabled: bool) -> ShortcutStatus {
     let mut status = register_shortcuts(&app, enabled);
     if status.error.is_none() {
-        if let Err(e) = pref_file(&app).and_then(|path| {
-            std::fs::create_dir_all(path.parent().expect("preference directory"))
-                .and_then(|()| std::fs::write(path, if enabled { "on" } else { "off" }))
-                .map_err(|e| e.to_string())
-        }) {
+        if let Err(e) = save_pref(&app, "brightness-shortcuts", enabled) {
             status.error = Some(format!("Changed for this run, but couldn't save the shortcut setting: {e}"));
         }
     }
     *app.state::<Shortcuts>().0.lock().unwrap() = status.clone();
     status
+}
+
+#[tauri::command]
+fn set_login(app: AppHandle, enabled: bool) -> login::Status {
+    let mut status = login::apply(enabled);
+    if status.error.is_none() {
+        if let Err(e) = save_pref(&app, "launch-at-login", enabled) {
+            status.error = Some(format!("Changed for this run, but couldn't save the setting: {e}"));
+        }
+    }
+    status
+}
+
+#[tauri::command]
+fn set_brightness_keys(app: AppHandle, enabled: bool) -> brightness_keys::Status {
+    let mut status = brightness_keys::apply(&app, enabled);
+    if status.error.is_none() {
+        if let Err(e) = save_pref(&app, "brightness-keys", enabled) {
+            status.error = Some(format!("Changed for this run, but couldn't save the setting: {e}"));
+        }
+    }
+    *app.state::<Keys>().0.lock().unwrap() = status.clone();
+    status
+}
+
+#[tauri::command]
+fn open_accessibility_settings() {
+    brightness_keys::open_settings();
+}
+
+#[tauri::command]
+async fn set_all(app: AppHandle, code: u8, percent: u16) -> Result<hardware::All, String> {
+    ddc(&app, move || hardware::set_all(code, percent)).await
 }
 
 #[tauri::command]
@@ -148,7 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("Expected --webview-check (or --test-mode) <isolated data directory> or --ddc-check <exact monitor name>.".into()),
     };
 
-    let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default())
+    let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default()).manage(Keys::default())
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state != ShortcutState::Pressed { return; }
             let app = app.clone();
@@ -163,9 +212,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }).build());
     #[cfg(not(feature = "webview-check"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, panel_info, set_shortcuts, close_panel]);
+    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel]);
     #[cfg(feature = "webview-check")]
-    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, panel_info, set_shortcuts, close_panel, check_result]);
+    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, check_result]);
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
@@ -174,13 +223,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(not(feature = "webview-check"))]
         let hidden = false;
 
-        let should_register = pref_file(app.handle())
-            .ok().and_then(|path| std::fs::read_to_string(path).ok()).as_deref() != Some("off");
-        *app.state::<Shortcuts>().0.lock().unwrap() = register_shortcuts(app.handle(), should_register);
+        *app.state::<Shortcuts>().0.lock().unwrap() =
+            register_shortcuts(app.handle(), pref_on(app.handle(), "brightness-shortcuts"));
         if hidden {
             create_panel(app.handle(), true)?;
             return Ok(());
         }
+        // A hidden check must not install a login item or ask macOS for Accessibility.
+        if pref_on(app.handle(), "launch-at-login") {
+            let _ = login::apply(true);
+        }
+        *app.state::<Keys>().0.lock().unwrap() =
+            brightness_keys::apply(app.handle(), pref_on(app.handle(), "brightness-keys"));
         let show = MenuItem::with_id(app, "show", "Show Displays", true, None::<&str>)?;
         let quit = MenuItem::with_id(app, "quit", "Quit Displays Studio KH", true, Some("Cmd+Q"))?;
         let separator = PredefinedMenuItem::separator(app)?;

@@ -2,7 +2,7 @@
 
 Control external monitor brightness from the Mac menu bar over DDC/CI. Contrast and monitor volume appear only when the display reports them. DisplayPort, HDMI, docks, and adapters vary: if a control is missing, check the monitor's DDC/CI setting and try a direct connection.
 
-Click the menu-bar display icon to open the panel. Use **Control–Shift–]** or **Control–Shift–[** to step all supported displays by 5%. Turn shortcuts off in the panel. Closing the panel does not quit the app; use **Quit Displays Studio KH** in the tray menu. The app doesn't poll or run a helper. It does not intercept media keys.
+Click the menu-bar display icon to open the panel. The slider at the top moves every display together. Use **Control–Shift–]** or **Control–Shift–[** to step all supported displays by 5%, or switch on **Use the Mac's brightness keys (F1/F2)** to make the Mac's own brightness keys drive the external displays — that needs Accessibility permission, and the panel says so when it is missing. **Start at login** is on by default. Closing the panel does not quit the app; use **Quit Displays Studio KH** in the tray menu. The app doesn't poll or run a helper.
 
 ## Local build
 
