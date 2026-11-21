@@ -91,11 +91,11 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
                 CFRelease(old.port);
             }
         }
-        return Status { enabled: false, error: None };
+        return Status { enabled: false, trusted: accessibility_trusted(), error: None };
     }
 
     if tap.is_some() {
-        return Status { enabled: true, error: None };
+        return Status { enabled: true, trusted: accessibility_trusted(), error: None };
     }
     if !accessibility_trusted() {
         return Status {
@@ -127,7 +127,7 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
         CGEventTapEnable(port, 1);
         *tap = Some(Tap { port, source });
     }
-    Status { enabled: true, error: None }
+    Status { enabled: true, trusted: accessibility_trusted(), error: None }
 }
 
 extern "C" fn tap_callback(
