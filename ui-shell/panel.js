@@ -146,6 +146,13 @@ async function refresh() {
       }
       return section;
     }));
+    // Start the all-displays control at what a monitor actually reported, never at a guess.
+    const reported = displays.flatMap((display) => display.levels).find((level) => level.code === 16 && level.percent !== null);
+    if (allSlider) {
+      allSlider.value = reported ? reported.percent : 50;
+      allSlider.dataset.confirmed = allSlider.value;
+      allSlider.setAttribute('aria-valuetext', `${allSlider.value}%`);
+    }
     status(displays.length ? '' : 'No external monitors found. Connect one, then refresh.');
   } catch (error) {
     list.replaceChildren();

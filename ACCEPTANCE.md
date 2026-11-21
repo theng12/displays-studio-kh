@@ -16,6 +16,11 @@ There is no create/editor page: the app is one panel of sliders. The rows below 
 | Contrast appears only where a read succeeds | `verify-hidden.py` sees Contrast at 50 (0x12) |
 | Volume appears only where a read succeeds | `verify-hidden.py` sees Volume at 98 (0x62) |
 | A setting the monitor does not report says "Not reported" and cannot be dragged | `hardware::tests::a_setting_the_monitor_did_not_report_is_never_a_number`; `hardware::row` returns `percent: None`, and `ui-shell/panel.js` draws no slider for it |
+| The Mac's own F1/F2 brightness keys drive the external displays, and are swallowed so the built-in display does not also change | `brightness_keys::tests::brightness_up_key_is_brighter`, `::brightness_down_key_is_dimmer`, `::other_keys_are_ignored`; the tap path itself is **not** proven without a real key press |
+| Without Accessibility nothing is swallowed and the panel says why | `brightness_keys::apply` installs nothing and returns the sentence when `accessibility_trusted()` is false; the sentence is shown by `#accessibility-note` |
+| One slider moves every display and shows only what each monitor confirmed | `hardware::tests::two_displays_get_their_own_scaled_writes`, `::a_display_that_fails_to_read_is_failed_not_changed`, `::a_display_that_does_not_confirm_is_failed_not_changed` |
+| Start at login installs one LaunchAgent and says so when it cannot | `login::tests::plist_names_the_label_and_program`, `::missing_program_says_install_first_without_touching_launchd` |
+| A first run explains the app, Accessibility and a monitor with no DDC | `#intro` card, dismissed once per user (`displays-intro-seen`), asserted present by the hidden UI check |
 | A change the monitor does not confirm is refused, not reported as done | `hardware::write` re-reads twice, then errors; `cargo test` covers the range maths |
 | Percentages map onto whatever range the monitor reports | `hardware::tests::scales_to_the_monitors_reported_range` |
 | Bad input never reaches the hardware | `hardware::tests::rejects_unknown_setting_without_accessing_hardware` |

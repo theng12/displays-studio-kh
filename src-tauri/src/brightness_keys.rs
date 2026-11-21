@@ -16,6 +16,8 @@ use crate::hardware;
 #[derive(Clone, Default, serde::Serialize)]
 pub struct Status {
     pub enabled: bool,
+    /// Whether macOS has granted Accessibility — the switch cannot work without it.
+    pub trusted: bool,
     pub error: Option<String>,
 }
 
@@ -97,6 +99,7 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
     }
     if !accessibility_trusted() {
         return Status {
+            trusted: accessibility_trusted(),
             enabled: false,
             error: Some("Allow Displays Studio KH in System Settings › Privacy & Security › Accessibility, then switch this on again.".into()),
         };
@@ -106,6 +109,7 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
         let port = CGEventTapCreate(1, 0, 0, 1 << 14, tap_callback, std::ptr::null_mut());
         if port.is_null() {
             return Status {
+                trusted: accessibility_trusted(),
                 enabled: false,
                 error: Some("macOS did not allow the brightness key tap. Check Accessibility permission and try again.".into()),
             };
@@ -114,6 +118,7 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
         if source.is_null() {
             CFRelease(port);
             return Status {
+                trusted: accessibility_trusted(),
                 enabled: false,
                 error: Some("Could not install the brightness key listener.".into()),
             };
