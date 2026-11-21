@@ -21,23 +21,16 @@ command -v cargo >/dev/null || fail "Rust (cargo) is missing."
 command -v python3 >/dev/null || fail "Python 3 is missing."
 command -v hdiutil >/dev/null || fail "hdiutil is missing."
 
-# shortcut: this repo has no npm project, so the Tauri CLI comes from an installed app's
-# node_modules. Upgrade by setting TAURI_CLI when that worktree goes away.
-TAURI="${TAURI_CLI:-}"
-if [ -z "$TAURI" ]; then
-  for candidate in "$(command -v tauri 2>/dev/null || true)" \
-    "$HOME/Developer/_worktrees/wire-studio-kh/021-fix/node_modules/.bin/tauri"; do
-    [ -x "$candidate" ] && { TAURI="$candidate"; break; }
-  done
-fi
-[ -n "$TAURI" ] && [ -x "$TAURI" ] || fail "no Tauri CLI found; set TAURI_CLI to one"
+# The app bundle is staged here rather than by the Tauri CLI: this repo has no npm project, and the
+# CLI that used to come from another checkout's node_modules is gone. The layout below is the one
+# Tauri produced for 0.1.0, so the product is the same shape without the extra tool.
 
 step "Checking versions agree"
 version="$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")"
 [ "$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -n1)" = "$version" ] || fail "Cargo.toml version differs from tauri.conf.json"
 [ "$(awk '/^## / { print $2; exit }' CHANGELOG.md)" = "$version" ] || fail "CHANGELOG.md's newest entry is not $version"
 [ "$(python3 -c "import json;print(json.load(open('ui-shell/whats-new.json'))[0]['version'])")" = "$version" ] || fail "whats-new.json's newest entry is not $version"
-printf 'Version %s (Tauri CLI %s)\n' "$version" "$("$TAURI" --version)"
+printf 'Version %s\n' "$version"
 
 step "Unlocking the shared signing keychain"
 security find-identity -p codesigning 2>/dev/null | grep -F '"KH Studio Local Signing"' >/dev/null \
@@ -50,13 +43,56 @@ if [ "${1:-}" = "--check" ]; then
   exit 0
 fi
 
-step "Building and signing the app and DMG (release)"
-"$TAURI" build --bundles app,dmg \
-  --config '{"bundle":{"macOS":{"signingIdentity":"KH Studio Local Signing","hardenedRuntime":false}}}' \
-  -- --locked
+step "Building the release binary"
+(cd src-tauri && cargo build --release --locked --features custom-protocol) \
+  || fail "the release build failed"
+binary="src-tauri/target/release/displays-studio-kh"
+[ -x "$binary" ] || fail "the release binary was not produced at $binary"
 
+step "Staging and signing the app bundle"
 app="src-tauri/target/release/bundle/macos/Displays Studio KH.app"
-[ -d "$app" ] || fail "the app bundle was not produced at $app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp "$binary" "$app/Contents/MacOS/displays-studio-kh"
+chmod 0755 "$app/Contents/MacOS/displays-studio-kh"
+cp src-tauri/icons/icon.icns "$app/Contents/Resources/icon.icns"
+python3 - "$app/Contents/Info.plist" "$version" <<'PY'
+import plistlib, sys
+plist = {
+    "CFBundleDevelopmentRegion": "English",
+    "CFBundleDisplayName": "Displays Studio KH",
+    "CFBundleExecutable": "displays-studio-kh",
+    "CFBundleIconFile": "icon.icns",
+    "CFBundleIdentifier": "app.displaysstudiokh.desktop",
+    "CFBundleInfoDictionaryVersion": "6.0",
+    "CFBundleName": "Displays Studio KH",
+    "CFBundlePackageType": "APPL",
+    "CFBundleShortVersionString": sys.argv[2],
+    "CFBundleVersion": sys.argv[2],
+    "LSMinimumSystemVersion": "13.0",
+    "LSRequiresCarbon": True,
+    "LSUIElement": True,
+    "NSHighResolutionCapable": True,
+}
+with open(sys.argv[1], "wb") as stream:
+    plistlib.dump(plist, stream)
+PY
+# The embedded frontend lives in the binary (custom-protocol), so the bundle needs nothing else.
+codesign --force --sign "KH Studio Local Signing" "$app/Contents/MacOS/displays-studio-kh" \
+  || fail "could not sign the binary"
+codesign --force --sign "KH Studio Local Signing" "$app" || fail "could not sign the app"
+codesign --verify --strict "$app" || fail "the staged app failed its own signature check"
+
+step "Packaging the DMG"
+vol="Displays Studio KH $version"
+dmg_source="src-tauri/target/release/bundle/dmg/Displays Studio KH_${version}_aarch64.dmg"
+mkdir -p src-tauri/target/release/bundle/dmg
+rm -f "$dmg_source"
+staging="$(mktemp -d /tmp/displays-dmg-src.XXXXXX)"
+trap 'rm -rf "$staging"' EXIT
+cp -R "$app" "$staging/Displays Studio KH.app"
+hdiutil create -volname "$vol" -srcfolder "$staging" -format UDZO -ov \
+  "$dmg_source" >/dev/null || fail "hdiutil could not build the DMG"
 
 step "Verifying the bundle"
 python3 - "$app" "$version" <<'PY'
@@ -78,8 +114,6 @@ case "$(uname -m)" in
   x86_64) dmg_arch=x64 ;;
   *) fail "unsupported DMG architecture: $(uname -m)" ;;
 esac
-dmg_source="src-tauri/target/release/bundle/dmg/Displays Studio KH_${version}_${dmg_arch}.dmg"
-[ -f "$dmg_source" ] || fail "the packager did not produce the exact release DMG: $dmg_source"
 dmg="dist/Displays Studio KH-${version}.dmg"
 [ ! -e "$dmg" ] || fail "$dmg already exists; one version = one artifact, so choose a new version"
 cp "$dmg_source" "$dmg"
