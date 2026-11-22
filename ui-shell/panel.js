@@ -244,6 +244,8 @@ async function initialise() {
       reconcile(changed);
       status(message, failed);
     });
+    // An update hold says it is happening: held → paused → resumed, in the panel's status line.
+    await listen('update-hold', ({ payload }) => status(payload));
     const [version, shortcutsInfo, loginInfo, keysInfo, releaseNotes] = await invoke('panel_info');
     shortcut.checked = shortcutsInfo.enabled;
     shortcut.disabled = false;

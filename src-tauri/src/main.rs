@@ -1,5 +1,6 @@
 mod brightness_keys;
 mod hardware;
+mod hold;
 mod login;
 
 use std::{path::PathBuf, sync::{Arc, Mutex}};
@@ -18,22 +19,33 @@ struct ShortcutStatus {
     error: Option<String>,
 }
 
-async fn ddc<T: Send + 'static>(app: &AppHandle, run: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+async fn ddc<T: Send + 'static>(app: &AppHandle, label: &'static str, run: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    // The update hold refuses new work here, before any hardware is touched.
+    let hold = app.state::<hold::Hold>();
+    let id = hold.claim(label)?;
     let bus = app.state::<Bus>().0.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
         let _guard = bus.try_lock().map_err(|_| "Another display action is in progress. Try again in a moment.")?;
+        // Test-only: a real DDC write takes milliseconds; this lets the hold be proven with work
+        // genuinely in flight. Set only by tests/hold.sh.
+        if let Some(ms) = std::env::var("DISPLAYS_STUDIO_TEST_WORK_MS").ok().and_then(|raw| raw.trim().parse::<u64>().ok()) {
+            eprintln!("test work in flight for {ms} ms");
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+        }
         run()
-    }).await.map_err(|_| "The display action stopped unexpectedly.")?
+    }).await.map_err(|_| "The display action stopped unexpectedly.".to_string())?;
+    hold.settle(id);
+    outcome
 }
 
 #[tauri::command]
 async fn scan(app: AppHandle) -> Result<Vec<hardware::Display>, String> {
-    ddc(&app, hardware::scan).await
+    ddc(&app, "Refreshing displays", hardware::scan).await
 }
 
 #[tauri::command]
 async fn set_level(app: AppHandle, display: String, code: u8, percent: u16) -> Result<hardware::Level, String> {
-    ddc(&app, move || hardware::set(&display, code, percent)).await
+    ddc(&app, "A display change", move || hardware::set(&display, code, percent)).await
 }
 
 fn keys() -> [Shortcut; 2] {
@@ -129,7 +141,7 @@ fn open_accessibility_settings() {
 
 #[tauri::command]
 async fn set_all(app: AppHandle, code: u8, percent: u16) -> Result<hardware::All, String> {
-    ddc(&app, move || hardware::set_all(code, percent)).await
+    ddc(&app, "Changing all displays", move || hardware::set_all(code, percent)).await
 }
 
 #[tauri::command]
@@ -197,13 +209,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("Expected --webview-check (or --test-mode) <isolated data directory> or --ddc-check <exact monitor name>.".into()),
     };
 
-    let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default()).manage(Keys::default())
+    let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default()).manage(Keys::default()).manage(hold::Hold::default())
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state != ShortcutState::Pressed { return; }
             let app = app.clone();
             let brighter = shortcut.id() == keys()[0].id();
             tauri::async_runtime::spawn(async move {
-                let outcome = ddc(&app, move || hardware::step(brighter)).await;
+                let outcome = ddc(&app, "Brightness keys", move || hardware::step(brighter)).await;
                 if let Some(tray) = app.tray_by_id("displays") {
                     let message = match &outcome { Ok(step) => step.message(), Err(reason) => reason };
                     let _ = tray.set_tooltip(Some(message));
@@ -218,6 +230,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
+        // The installer reads this URL from the signed feed and calls it before an update.
+        hold::start_server(app.handle().clone());
         #[cfg(feature = "webview-check")]
         let hidden = app.state::<Check>().0.is_some();
         #[cfg(not(feature = "webview-check"))]
