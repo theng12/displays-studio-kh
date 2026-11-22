@@ -51,7 +51,7 @@ if [ -n "$HOLD_URL" ]; then HOLD_ARGS="--hold-url $(q "$HOLD_URL") --hold-since 
 NEW_ARGS=""
 [ "$NEW" -eq 1 ] && NEW_ARGS="--new-app --name $(q "$NAME") --kind app-dmg"
 
-"${SSH[@]}" "K=\$HOME/Library/KHUpdater; B=\"\$K/base/current/khu\"; [ -x \"\$B\" ] || { echo \"refused: no current khu at \$B\" >&2; exit 3; }; \"\$B\" publish --feed \"\$K/feed\" --key \"\$K/keys/private.key\" \
+"${SSH[@]}" "K=\$HOME/Library/KHUpdater; B=\"\$K/base/current\"; [ -x \"\$B\" ] || B=\"\$K/base/current/khu\"; [ -x \"\$B\" ] || { echo \"refused: no current khu at \$K/base/current\" >&2; exit 3; }; \"\$B\" publish --feed \"\$K/feed\" --key \"\$K/keys/private.key\" \
   --app $(q "$APP") --version $(q "$VERSION") --artifact \"\$HOME/$STAGE/$BASE\" --changelog \"\$HOME/$STAGE/changelogs/$APP.md\" \
   --tagline $(q "$TAGLINE") $TYPE_ARGS $DESC_ARGS $HOLD_ARGS $NEW_ARGS"
 
