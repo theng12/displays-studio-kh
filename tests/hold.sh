@@ -68,8 +68,11 @@ START=$(now_ms); REPLY=$(post "timeout_s=1&pause_s=120"); ELAPSED=$(( $(now_ms) 
 [ "$(echo "$REPLY" | field safe)" = "false" ] || fail "a hold over running work answered safe=true: $REPLY"
 [ "$(echo "$REPLY" | field in_flight)" -ge 1 ] || fail "the hold did not count the running work: $REPLY"
 [ "$(echo "$REPLY" | field unsettled)" != '[]' ] || fail "the unsafe answer named nothing: $REPLY"
+# Wall clock covers curl and the transport, so it is held to a generous band: not before the
+# ceiling (it must not answer early) and not far past it. The app's own line — "update hold: not
+# safe in N ms (ceiling 1 s)" — is the tight number, and it includes the reply assembly.
 [ "$ELAPSED" -ge 900 ] && [ "$ELAPSED" -le 5000 ] || fail "the settle ignored its 1 s ceiling (took ${ELAPSED} ms)"
-pass "hold taken with live work; safe=false, unsettled names the refresh, answered in ${ELAPSED} ms under a 1 s ceiling"
+pass "hold taken with live work; safe=false, unsettled names the refresh; client round trip ${ELAPSED} ms (see the app's own 'update hold:' line for the settle itself)"
 
 # 2. The same work settles inside the 20 s ceiling and the answer becomes safe, with nothing cancelled.
 REPLY=$(del)
