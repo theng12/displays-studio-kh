@@ -146,13 +146,18 @@ async fn set_all(app: AppHandle, code: u8, percent: u16) -> Result<hardware::All
 
 #[tauri::command]
 fn close_panel(window: tauri::WebviewWindow) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
+    // Escape/Cmd+W fold the dropdown away; the window stays cached for the next open.
+    window.hide().map_err(|e| e.to_string())
 }
 
 fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWindow> {
+    // A menu-bar dropdown, not a window: no title bar, always above other apps, sized so every
+    // control fits without scrolling (the owner compared it to Lunar, which drops from the tray).
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("Displays Studio KH").inner_size(430.0, 660.0).min_inner_size(380.0, 460.0)
-        .visible(!hidden).focused(!hidden).maximizable(false).resizable(true)
+        .title("Displays Studio KH").inner_size(372.0, 668.0)
+        .decorations(false).always_on_top(true).shadow(true).maximizable(false)
+        .minimizable(false).resizable(false)
+        .visible(!hidden).focused(!hidden)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     #[cfg(feature = "webview-check")]
     let builder = if let Some(dir) = app.state::<Check>().0.as_ref() {
@@ -162,15 +167,45 @@ fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWi
             }
         })
     } else { builder };
-    builder.build()
+    let window = builder.build()?;
+    #[cfg(not(feature = "webview-check"))]
+    {
+        // A dropdown closes when the person clicks anywhere else: hide the panel, keep it alive.
+        let handle = app.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(false) = event {
+                if let Some(panel) = handle.get_webview_window("main") {
+                    let _ = panel.hide();
+                }
+            }
+        });
+    }
+    Ok(window)
 }
 
 fn show_panel(app: &AppHandle) {
-    let result = match app.get_webview_window("main") {
-        Some(window) => window.show().and_then(|()| window.unminimize()).and_then(|()| window.set_focus()),
-        None => create_panel(app, false).map(|_| ()),
+    show_panel_at(app, None);
+}
+
+/// Opens the panel, optionally anchored just under the tray icon (menu-bar dropdown).
+fn show_panel_at(app: &AppHandle, under_icon: Option<(f64, f64)>) {
+    let window = match app.get_webview_window("main") {
+        Some(window) => window,
+        None => match create_panel(app, false) {
+            Ok(window) => window,
+            Err(e) => {
+                eprintln!("Couldn't open Displays Studio KH: {e}");
+                if let Some(tray) = app.tray_by_id("displays") {
+                    let _ = tray.set_tooltip(Some("Couldn't open Displays Studio KH. Quit and reopen it."));
+                }
+                return;
+            }
+        },
     };
-    if let Err(e) = result {
+    if let Some((x, y)) = under_icon {
+        let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    if let Err(e) = window.show().and_then(|()| window.set_focus()) {
         eprintln!("Couldn't open Displays Studio KH: {e}");
         if let Some(tray) = app.tray_by_id("displays") {
             let _ = tray.set_tooltip(Some("Couldn't open Displays Studio KH. Quit and reopen it."));
@@ -262,8 +297,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 _ => {}
             })
             .on_tray_icon_event(|tray, event| {
-                if matches!(event, TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. }) {
-                    show_panel(tray.app_handle());
+                if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, rect, .. } = event {
+                    let app = tray.app_handle();
+                    // Drop the panel just under the tray icon, like a menu (Lunar's shape).
+                    if let Some(panel) = app.get_webview_window("main") {
+                        if let Ok(size) = panel.outer_size() {
+                            let (px, py) = match rect.position {
+                                tauri::Position::Physical(p) => (f64::from(p.x), f64::from(p.y)),
+                                tauri::Position::Logical(p) => (p.x, p.y),
+                            };
+                            let (w, h) = match rect.size {
+                                tauri::Size::Physical(s) => (f64::from(s.width), f64::from(s.height)),
+                                tauri::Size::Logical(s) => (s.width, s.height),
+                            };
+                            let x = px + (w - size.width as f64) / 2.0;
+                            let y = py + h + 6.0;
+                            show_panel_at(app, Some((x, y)));
+                            return;
+                        }
+                    }
+                    show_panel(app);
                 }
             }).build(app)?;
         Ok(())

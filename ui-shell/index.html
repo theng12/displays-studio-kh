@@ -13,20 +13,17 @@
     <button type="button" id="refresh">Refresh</button>
   </header>
   <section id="intro" aria-label="About Displays Studio KH" hidden>
-    <p>Displays Studio KH lets you adjust brightness, contrast and volume on external monitors from the menu bar.</p>
-    <p>Using the Mac's brightness keys needs Accessibility permission in System Settings.</p>
-    <p>A monitor without DDC/CI gets a row saying it reports no controls.</p>
+    <p>Adjust brightness, contrast and volume of external monitors from the menu bar. A monitor without DDC/CI shows no controls.</p>
     <button type="button" id="intro-dismiss">Got it</button>
   </section>
+  <p id="accessibility-note" role="alert" hidden>Using F1/F2 needs permission: allow Displays Studio KH in System Settings › Privacy &amp; Security › Accessibility, then switch it on here again. <button type="button" id="open-accessibility">Open System Settings</button></p>
   <main aria-label="External monitors" id="displays"></main>
   <p id="status" role="status" aria-live="polite">Checking your displays…</p>
   <footer>
     <label><input id="shortcuts" type="checkbox" disabled> Brightness shortcuts</label>
     <label><input id="login" type="checkbox" checked disabled> Start at login</label>
     <label><input id="brightness-keys" type="checkbox" disabled> Use the Mac's brightness keys (F1/F2)</label>
-    <p id="accessibility-note" hidden>Allow Displays Studio KH in System Settings › Privacy &amp; Security › Accessibility, then switch this on again. <button type="button" id="open-accessibility">Open System Settings</button></p>
-    <p><kbd aria-label="Control Shift right bracket">⌃⇧]</kbd> brighter · <kbd aria-label="Control Shift left bracket">⌃⇧[</kbd> dimmer · all supported displays</p>
-    <button class="version" type="button" id="version" title="What's New">Displays Studio KH</button>
+    <p><kbd aria-label="Control Shift right bracket">⌃⇧]</kbd> brighter · <kbd aria-label="Control Shift left bracket">⌃⇧[</kbd> dimmer · <button class="version" type="button" id="version" title="What's New">What's new</button></p>
   </footer>
   <dialog aria-labelledby="news-title" id="news">
     <h2 id="news-title">What's New <span id="news-version"></span></h2>

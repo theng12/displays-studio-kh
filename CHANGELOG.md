@@ -1,5 +1,11 @@
 # What's New
 
+## 0.1.4 — 2026-11-22
+
+- The panel drops from the menu-bar icon like a menu (no title bar, anchored under the icon) and folds away when you click elsewhere.
+- Sized so everything fits: no scrolling, no cut-off controls, and the hidden check now refuses a vertically overflowing panel.
+- The F1/F2 Accessibility fix is a banner at the top of the panel with its Open System Settings button, not a footnote at the bottom.
+
 ## 0.1.3 — 2026-11-22
 
 - Move the update hold to its own loopback port (8650). 0.1.2 used 8649, which Wire Studio has served since its 0.1.0, so whichever app started second could not be held and a hold could land on the wrong app.

@@ -10,10 +10,14 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none; }
-body { margin: 0; padding: 16px; background: var(--paper); color: var(--ink); }
+body { margin: 0; padding: 12px 14px; background: var(--paper); color: var(--ink); max-height: 100vh; overflow-y: auto; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* The F1/F2 permission is the one dead end a person can hit, so it is a banner, not a footnote. */
+#accessibility-note { margin: 8px 0 0; padding: 8px 10px; border: 1px solid var(--error);
+  border-radius: 8px; color: var(--ink); background: color-mix(in srgb, var(--error) 12%, var(--paper)); font-size: 12px; }
+#accessibility-note button { margin-left: 4px; min-height: 24px; padding: 2px 8px; }
 h1, h2, p { margin: 0; }
-h1 { font-size: 22px; letter-spacing: -.025em; }
+h1 { font-size: 19px; letter-spacing: -.025em; }
 h2 { font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
 p, kbd { color: var(--muted); }
 button, input { font: inherit; accent-color: var(--accent); }
@@ -23,22 +27,23 @@ button:hover:not(:disabled), button:active:not(:disabled) { background: var(--ti
 button:disabled, input:disabled { opacity: .65; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ::selection { background: var(--tint); color: var(--ink); }
-main { margin-top: 12px; }
-section { border-top: 1px solid var(--line); padding: 12px 0; display: grid; gap: 6px; }
+main { margin-top: 10px; }
+section { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 6px; }
 .level { display: grid; grid-template-columns: 64px minmax(60px, 1fr) 4ch; gap: 8px; align-items: center; }
 .level input { width: 100%; margin: 0; min-height: 22px; }
 .level span { min-width: 0; }
 .level.unreported { grid-template-columns: 64px 1fr; color: var(--muted); }
 .level output { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .all-displays .level { grid-template-columns: 88px minmax(60px, 1fr); }
-.intro { gap: 8px; }
+#intro { gap: 6px; }
+#intro p { font-size: 12px; }
 .intro button { justify-self: start; }
 #status:not(:empty) { margin: 4px 0 12px; }
 #status[data-error] { color: var(--error); }
-footer { border-top: 1px solid var(--line); padding-top: 12px; }
+footer { border-top: 1px solid var(--line); padding-top: 10px; }
 footer label { display: flex; align-items: center; gap: 6px; width: fit-content; }
 footer input { margin: 0; }
-footer p { margin: 4px 0 12px; font-size: 12px; }
+footer p { margin: 4px 0 8px; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 #accessibility-note button { margin-left: 4px; min-height: 22px; padding: 2px 6px; }
 kbd { font: inherit; white-space: nowrap; }
 .version { color: var(--muted); border-radius: 100px; }

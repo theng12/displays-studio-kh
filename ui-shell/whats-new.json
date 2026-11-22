@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.1.4",
+    "date": "2026-11-22",
+    "items": [
+      "The panel now drops from the menu-bar icon like a menu, instead of floating as a window, and closes when you click elsewhere.",
+      "Everything fits the panel: no scrolling, no cut-off controls.",
+      "When F1/F2 cannot work yet, the panel shows the fix and its Open System Settings button up top, not a footnote."
+    ]
+  },
+  {
     "version": "0.1.3",
     "date": "2026-11-22",
     "items": [

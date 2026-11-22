@@ -25,6 +25,7 @@
     assert(document.querySelector('#intro'), 'The first-run explanation is missing');
     assert(document.querySelector('#shortcuts').checked, 'Global shortcuts did not register');
     assert(document.documentElement.scrollWidth <= innerWidth, 'Panel overflows horizontally');
+    assert(document.documentElement.scrollHeight <= innerHeight, `Panel overflows vertically: content ${document.documentElement.scrollHeight}px in a ${innerHeight}px dropdown`);
     result.bounds = [innerWidth, innerHeight, document.documentElement.scrollHeight];
     result.ok = true;
   } catch (error) {
