@@ -40,7 +40,7 @@ if [ -n "${KHU_HOLD_URL:-}" ]; then HOLD_ARGS="--hold-url '$KHU_HOLD_URL'"; fi
 NEW_ARGS=""
 [ "$NEW" -eq 1 ] && NEW_ARGS="--new-app --name '$NAME' --kind app-dmg"
 
-"${SSH[@]}" "K=\$HOME/Library/KHUpdater; \"\$K/bin/khu\" publish --feed \"\$K/feed\" --key \"\$K/keys/private.key\" \
+"${SSH[@]}" "K=\$HOME/Library/KHUpdater; B=\"\$K/base/current/khu\"; [ -x \"\$B\" ] || { echo \"refused: no current khu at \$B\" >&2; exit 3; }; \"\$B\" publish --feed \"\$K/feed\" --key \"\$K/keys/private.key\" \
   --app '$APP' --version '$VERSION' --artifact \"\$HOME/$STAGE/$BASE\" --changelog \"\$HOME/$STAGE/changelogs/$APP.md\" \
   --tagline '$TAGLINE' $HOLD_ARGS $NEW_ARGS"
 
