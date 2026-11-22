@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.5 — 2026-11-22
+
+- Build the release binary with remapped source paths, so the package carries no local build path (the public release scan stops on one).
+
 ## 0.1.4 — 2026-11-22
 
 - The panel drops from the menu-bar icon like a menu (no title bar, anchored under the icon) and folds away when you click elsewhere.

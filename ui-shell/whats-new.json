@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.5",
+    "date": "2026-11-22",
+    "items": [
+      "The app package no longer contains local build paths."
+    ]
+  },
+  {
     "version": "0.1.4",
     "date": "2026-11-22",
     "items": [

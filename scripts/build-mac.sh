@@ -44,6 +44,10 @@ if [ "${1:-}" = "--check" ]; then
 fi
 
 step "Building the release binary"
+# The public release scan refuses an artifact that names the owner's home directory, and Rust
+# bakes absolute source paths (the cargo registry, this workspace) into panic metadata. Remap
+# them to a neutral prefix so the shipped binary carries no local path.
+export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$HOME=/build"
 (cd src-tauri && cargo build --release --locked --features custom-protocol) \
   || fail "the release build failed"
 binary="src-tauri/target/release/displays-studio-kh"
