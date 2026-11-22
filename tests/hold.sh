@@ -18,7 +18,7 @@ fail() { printf 'FAIL  %s\n' "$1" >&2; exit 1; }
 RUN="$(mktemp -d "${TMPDIR:-/tmp}/displays-studio-hold.XXXXXX")"
 mkdir -p "$RUN/home"
 export HOME="$RUN/home"
-PORT="${HOLD_TEST_PORT:-18649}"
+PORT="${HOLD_TEST_PORT:-18650}"
 export DISPLAYS_STUDIO_HOLD_PORT="$PORT"
 export DISPLAYS_STUDIO_TEST_WORK_MS="${HOLD_TEST_WORK_MS:-6000}"
 TOKEN_FILE="$RUN/hold-token"

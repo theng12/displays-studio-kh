@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.3",
+    "date": "2026-11-22",
+    "items": [
+      "The update hold now has its own port, so an update can never pause another app by mistake."
+    ]
+  },
+  {
     "version": "0.1.2",
     "date": "2026-11-22",
     "items": [

@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.3 — 2026-11-22
+
+- Move the update hold to its own loopback port (8650). 0.1.2 used 8649, which Wire Studio has served since its 0.1.0, so whichever app started second could not be held and a hold could land on the wrong app.
+
 ## 0.1.2 — 2026-11-22
 
 - Only one copy can run: launching it again opens the panel instead of adding a second menu-bar icon.

@@ -18,7 +18,9 @@ pub const HOLD_PATH: &str = "/api/maintenance/hold";
 const HOLD_TOKEN_ENV: &str = "KHU_HOLD_TOKEN_FILE";
 /// This app's row in the contract's port table. Fixed, because the signed feed names it as a
 /// literal URL; `DISPLAYS_STUDIO_HOLD_PORT` exists only so a test instance avoids the live port.
-const HOLD_PORT: u16 = 8649;
+/// 0.1.2 used 8649 and Wire Studio already served that port since its 0.1.0, so whichever app
+/// started second could not be held.
+const HOLD_PORT: u16 = 8650;
 const TIMEOUT_DEFAULT_S: u64 = 20;
 const TIMEOUT_MAX_S: u64 = 30;
 const PAUSE_DEFAULT_S: u64 = 120;
