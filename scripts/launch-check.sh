@@ -45,6 +45,8 @@ echo "launch-check: entitlement present in the app inside the DMG"
 cp -R "$SRC" "$RUN/app"
 mkdir -p "$RUN/home"
 
+CRASH_DIR="$HOME/Library/Logs/DiagnosticReports"
+touch "$RUN/launch-marker"
 HOME="$RUN/home" DISPLAYS_STUDIO_HOLD_PORT=18651 \
   "$RUN/app/Contents/MacOS/displays-studio-kh" >"$RUN/app.log" 2>&1 &
 PID=$!
@@ -67,7 +69,34 @@ PYV
 )
 [ "$VERSION" = "$WANT" ] || fail "the running copy is $VERSION, not $WANT"
 echo "launch-check: running copy is $VERSION"
+# LaunchServices registers a running UIElement, and naming it proves the process is the app we think
+# it is, at the version we think it is — not merely that some pid started.
+LS_VERSION=$(lsappinfo list 2>/dev/null | /usr/bin/python3 -I -c '
+import re, sys
+pid, want = sys.argv[1], sys.argv[2]
+for block in re.split(r"\n(?=\d+\) )", sys.stdin.read()):
+    if re.search(r"\bpid\s*=\s*%s\b" % re.escape(pid), block):
+        v = re.search(r"Version=\"([^\"]+)\"", block)
+        n = re.search(r"\"([^\"]+)\" ASN:", block)
+        if v and n and n.group(1) == want:
+            print(v.group(1))
+        break
+' "$PID" "Displays Studio KH")
+if [ -n "$LS_VERSION" ]; then
+  [ "$LS_VERSION" = "$WANT" ] || fail "lsappinfo says the running app is version $LS_VERSION, not $WANT"
+  echo "launch-check: lsappinfo names Displays Studio KH at $LS_VERSION"
+else
+  echo "launch-check: lsappinfo has not registered the directly-executed process; pid and the copy's version stand"
+fi
 grep -q 'update hold listening' "$RUN/app.log" && echo "launch-check: the hold listener started"
+# A pid can survive while a helper or a second instance crashed: any crash report written after the
+# launch is a failure, whatever the pid says. 0.1.8 wrote its report in the first second.
+CRASHES=$(find "$CRASH_DIR" -name 'displays-studio-kh-*.ips' -newer "$RUN/launch-marker" 2>/dev/null | head -5)
+if [ -n "$CRASHES" ]; then
+  printf '%s\n' "$CRASHES" >&2
+  fail "a crash report was written during the launch check (listed above)"
+fi
+echo "launch-check: no crash report written during the check"
 kill "$PID" 2>/dev/null || true
 wait "$PID" 2>/dev/null || true
 PID=""
