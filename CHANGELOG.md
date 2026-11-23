@@ -1,5 +1,10 @@
 # What's New
 
+## 0.1.9 — 2026-11-23
+
+- Fixes the app quitting a second after it started: the self-signed app and its bundled update framework were treated as two different publishers, so macOS refused to load it. The release now carries the entitlement that lets our own framework load, verified inside the shipped app rather than in the build folder.
+- The release gate now launches the app it built and fails if it does not survive, so this class of fault cannot pass again.
+
 ## 0.1.8 — 2026-11-23
 
 - The app can now update itself: it checks its own signed feed, takes the update quiet point before downloading, and installs without a window or a prompt. This is the Sparkle pilot's baseline build — installing it by hand is the last time an update is installed by hand.
