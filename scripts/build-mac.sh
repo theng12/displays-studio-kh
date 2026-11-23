@@ -60,7 +60,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$binary" "$app/Contents/MacOS/displays-studio-kh"
 chmod 0755 "$app/Contents/MacOS/displays-studio-kh"
 cp src-tauri/icons/icon.icns "$app/Contents/Resources/icon.icns"
-python3 - "$app/Contents/Info.plist" "$version" <<'PY'
+python3 - "$app/Contents/Info.plist" "$version" src-tauri/Info.plist <<'PY'
 import plistlib, sys
 plist = {
     "CFBundleDevelopmentRegion": "English",
@@ -81,6 +81,9 @@ plist = {
     "LSMultipleInstancesProhibited": True,
     "NSHighResolutionCapable": True,
 }
+# The Tauri CLI is not used here, so nothing else merges src-tauri/Info.plist: a key written there
+# would otherwise exist in the repo and never in the bundle. It is the one source for app-specific keys.
+plist.update(plistlib.load(open(sys.argv[3], "rb")))
 with open(sys.argv[1], "wb") as stream:
     plistlib.dump(plist, stream)
 PY
@@ -111,7 +114,9 @@ assert plist.get("CFBundleShortVersionString") == version, plist.get("CFBundleSh
 assert plist.get("CFBundleName") == "Displays Studio KH", plist.get("CFBundleName")
 assert plist.get("LSUIElement") is True, "LSUIElement must be true (menu-bar app)"
 assert plist.get("LSMultipleInstancesProhibited") is True, "a second launch must not start a second instance"
-print("Info.plist: id, version, name, LSUIElement, single-instance ok")
+assert plist.get("SUFeedURL") == "https://theng12.github.io/displays-studio-kh/appcast.xml", "SUFeedURL missing from the bundle"
+assert plist.get("KHHoldURL", "").endswith(":8650/api/maintenance/hold"), "KHHoldURL missing from the bundle"
+print("Info.plist: id, version, name, LSUIElement, single-instance, SUFeedURL, KHHoldURL ok")
 PY
 codesign --verify --deep --strict "$app" || fail "the app's signature is broken"
 
