@@ -31,9 +31,22 @@ Saved presets, and the release that proves the update path on an installed app.
 GATE PASS displays-studio ded90cae8bfe0971c7b4101d9206df6be6bda329 2026-11-23T16:32:19Z
 ```
 
-Steps, all ok: preflight (`shim: … sha256 … / shim: PASS`) → no-release → versions → cargo-test
-(25 tests) → hidden-ui → hold → package → entitlement → launch → scan → desktop-safety →
-commit-identity. `idle-footprint` UNMEASURED (no `IDLE_PID` in the config).
+Steps, each recorded `ok` in the summary: preflight (`shim: … sha256 … / shim: PASS`) → no-release →
+versions → cargo-test (25 tests) → hidden-ui → hold → package → entitlement → launch → scan →
+desktop-safety → commit-identity. `idle-footprint` UNMEASURED (no `IDLE_PID` in the config).
+
+**`launch` reads `ok` and measured nothing — read the step's text, never its colour.** On this Mac
+the app is normally installed and running, so the wrapper prints and exits 0:
+
+```
+UNMEASURED: Displays Studio KH.app did not stay up, and another copy of it was already running — not a build verdict
+launch: INVALID — app already running (single-instance, LSMultipleInstancesProhibited); not measured
+```
+
+`gate-run.sh` has no "measured nothing" status to map that to, and making the wrapper exit non-zero
+would turn a correct environment into a red step; the two halves are being fixed together (row
+`20261123-72`). Until then the pair above is the record for this gate, and no sentence in this receipt
+reads "launch passed".
 
 - `scan-dmg: clean`, 89 files, `scan-receipt {"sha256": "bc4fb6aa…2da2d", "exit": 0,
   "scanner_version": "scan-dmg/2026-11-20", "at": "2026-11-23T16:32:18Z", "excused": []}`.
@@ -41,10 +54,15 @@ commit-identity. `idle-footprint` UNMEASURED (no `IDLE_PID` in the config).
   canonical: **0 failing checks**, `SHIM PASS libkhsparkle.a matches the required sha`,
   `ROWESCAPE AUDIT` (not a pass — row states enumerated by hand; each has a control or a named
   refusal).
-- **launch step: `INVALID — app already running (single-instance, LSMultipleInstancesProhibited);
-  not measured`**, with the tool line `install-launch-check-e1a4850e… sha256 e1a4850e0c34…`.
-  It is recorded, not a pass: on this pin the launch check proves an app starts and lives and says
-  **nothing about self-update**. The self-update claim rests on the behavioural check and the pilot.
+- **launch step: UNMEASURED** — the pair of lines quoted above, from the tool line
+  `install-launch-check-e1a4850e… sha256 e1a4850e0c34…` (the pin the gate ran). On that pin the
+  launch check proves an app starts and lives and says **nothing about self-update**; the self-update
+  claim rests on the behavioural check and the pilot.
+- **After the gate**, `scripts/launch-gate.sh` was repointed to the cleared pin
+  `install-launch-check-847e77db…` (20.7K, sha256 `847e77db5c99…`; commit `68d4e94`), which scopes
+  crash reports to this app — a neighbour's crash can no longer fail this gate — reads a two-entry
+  `REQUIRED-SHIM.txt`, and notes this app's missing `.a` instead of condemning it. Run against this
+  DMG while the app is installed, it gives the same `UNMEASURED` line and exits 0: still not a pass.
 
 ## Behavioural check (the only self-update instrument for a shipped bundle)
 
