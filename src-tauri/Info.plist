@@ -4,13 +4,14 @@
 <dict>
   <key>LSUIElement</key>
   <true/>
-  <!-- Sparkle pilot: the shim reads these from the bundle. SUPublicEDKey is the public half of the
-       estate EdDSA key (~/.kh-sparkle/ed25519-private.key, 0600, never in a repo). KHHoldURL must
-       match HOLD_PORT in src/hold.rs. -->
+  <!-- Sparkle pilot: the shim reads these from the bundle. SUPublicEDKey is this app's own key
+       (~/.kh-sparkle/app.displaysstudiokh.desktop/private.key, 0600, recovery copy on the KH drives;
+       never in a repo, never regenerated while an install trusts it). KHHoldURL must match
+       HOLD_PORT in src/hold.rs. -->
   <key>SUFeedURL</key>
   <string>https://theng12.github.io/displays-studio-kh/appcast.xml</string>
   <key>SUPublicEDKey</key>
-  <string>MZbDMtSkrE2AWm1krIhSL1rvB0bExxeusMkqHgJTu6k=</string>
+  <string>kBRmFw8HmCAwiACHdQ8Abro817+NaAWnIS4MldqalY8=</string>
   <key>SUEnableAutomaticChecks</key>
   <true/>
   <key>KHHoldTokenFile</key>
