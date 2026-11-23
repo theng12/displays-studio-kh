@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.10 — 2026-11-23
+
+- Same app as 0.1.9. It is the first release the app can install by itself: from here on, updates arrive on their own instead of someone installing a new copy.
+
 ## 0.1.9 — 2026-11-23
 
 - Fixes the app quitting a second after it started: the self-signed app and its bundled update framework were treated as two different publishers, so macOS refused to load it. The release now carries the entitlement that lets our own framework load, verified inside the shipped app rather than in the build folder.
