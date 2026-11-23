@@ -20,7 +20,11 @@ cd "$(dirname "$0")/.."
 
 DMG="${1:?usage: launch-gate.sh <dmg> \"<app name>\"}"
 NAME="${2:?usage: launch-gate.sh <dmg> \"<app name>\"}"
-TOOL="${KH_LAUNCH_CHECK:-/Users/vengtheng/Developer/_orchestra/tools/install-launch-check.sh}"
+# A pin, not the moving canonical: the canonical is re-cut without notice, and 933b580f (cleared on
+# 2026-11-23) fails any app whose KHHoldTokenFile carries `~` — which is this app's shipped form, and
+# correct since the vendored shim expands it. e1a4850e answered "alive after 10 s" here and is held
+# until Release Tooling re-cuts (Main, 2026-11-23).
+TOOL="${KH_LAUNCH_CHECK:-/Users/vengtheng/Developer/_orchestra/tools/pinned/install-launch-check-e1a4850e0c342d3e.sh}"
 [ -x "$TOOL" ] || { echo "launch-gate: INVALID — the shared check is missing at $TOOL"; exit 75; }
 echo "launch-gate: tool $TOOL sha256 $(shasum -a 256 "$TOOL" | cut -d' ' -f1)"
 

@@ -135,6 +135,35 @@ release, and the app's own updater does not read that feed.
 itself**: it ships the pre-fix library `62ca95…`, so it refuses its own hold exactly as 0.1.9 does.
 An appcast offering 0.1.10 does not mean an installed 0.1.9 can take it.
 
+## Instruments this release trusts, and one it refused
+
+- **Launch check:** pin `install-launch-check-e1a4850e0c342d3e.sh`, sha256
+  `e1a4850e…61171e4e`, 16,523 B. `scripts/launch-gate.sh` now defaults to **that pin**, not
+  the moving canonical (which was `0bc9532d…` at gate time and `982f0d06…` an hour later): whatever
+  the canonical says it is, this gate measures with the instrument it names.
+- **`933b580f` was not adopted.** Clearance is not a measurement: its `shim_check` fails on the
+  tilde alone (its lines 52–55) with no test of which shim the app carries, and
+  `~/Library/KHUpdater/state/hold-token` is this app's shipped, correct form — the vendored shim
+  expands it, and an absolute path is disallowed because it puts the owner's home in a public
+  artifact. A red there would call a working build broken.
+- **The scanner does not assert the shim.** `REQUIRED-SHIM` appears 0 times in
+  `studio-gate-727408ba92f53258.sh` and 0 times in `studio-gate-a0b4dc4ca1c1f1ab.sh` (1 in the
+  canonical), so a clean scan says nothing about which library a build carries. The release asserts
+  it separately:
+
+  ```
+  $ bash scripts/check-shim.sh
+  shim: src-tauri/vendor/khsparkle/libkhsparkle.a 85480 bytes sha256 818826a79d4e54885cbb5ad167f7425da8ba77436c6a5e277532f400aa1b4216
+  shim: PASS
+  ```
+
+  `build-mac.sh` runs it before `--check` returns, so every gate's preflight prints that line. The
+  0.1.11 gate itself predates the script — the line above was run after it — and 0.1.12's gate
+  carries it as part of preflight.
+
+These three changes land after publication; none of them touches the DMG, which still carries the
+gated commit's bytes.
+
 ## Not true yet
 
 - the owner's Mac runs 0.1.9, which cannot check at all; the pilot is **0.1.11 hand-installed, 0.1.12

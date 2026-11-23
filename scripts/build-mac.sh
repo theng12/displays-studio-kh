@@ -22,6 +22,8 @@ command -v python3 >/dev/null || fail "Python 3 is missing."
 command -v hdiutil >/dev/null || fail "hdiutil is missing."
 [ -d src-tauri/vendor/khsparkle/Sparkle.framework ] || fail "the vendored Sparkle.framework is missing"
 [ -f src-tauri/vendor/khsparkle/libkhsparkle.a ] || fail "the vendored libkhsparkle.a is missing"
+# The scanner cannot see this library — it is not in the DMG — so the shim's identity is asserted here.
+bash scripts/check-shim.sh || fail "the vendored update library is not the required one"
 
 # The app bundle is staged here rather than by the Tauri CLI: this repo has no npm project, and the
 # CLI that used to come from another checkout's node_modules is gone. The layout below is the one
