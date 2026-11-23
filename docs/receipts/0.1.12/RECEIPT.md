@@ -43,10 +43,12 @@ UNMEASURED: Displays Studio KH.app did not stay up, and another copy of it was a
 launch: INVALID — app already running (single-instance, LSMultipleInstancesProhibited); not measured
 ```
 
-`gate-run.sh` has no "measured nothing" status to map that to, and making the wrapper exit non-zero
-would turn a correct environment into a red step; the two halves are being fixed together (row
-`20261123-72`). Until then the pair above is the record for this gate, and no sentence in this receipt
-reads "launch passed".
+At the time of this gate `gate-run.sh` had no "measured nothing" status to map that to. **Fixed after
+the gate by `6f566e5`:** the wrapper exits 75 for this case, the runner records
+`INVALID launch (rc=75) — measured nothing`, and a run with such a step closes **`GATE INCOMPLETE`**
+(no `GATE-PASS.txt`) instead of `GATE PASS`. The next gate on this Mac, with the app installed, will
+therefore close INCOMPLETE — honest, not a regression — and a version cannot be released on that run
+alone; the launch has to be measured with Displays closed, or recorded UNMEASURED as here.
 
 - `scan-dmg: clean`, 89 files, `scan-receipt {"sha256": "bc4fb6aa…2da2d", "exit": 0,
   "scanner_version": "scan-dmg/2026-11-20", "at": "2026-11-23T16:32:18Z", "excused": []}`.
