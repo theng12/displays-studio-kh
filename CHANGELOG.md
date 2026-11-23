@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.11 — 2026-11-23
+
+- Fixes the update check refusing to start. The bundled update framework looked for the token file that lets it ask for a quiet moment, and could not read a path written with `~` — so it gave up before checking, silently. It now expands that path. Nothing else changes.
+
 ## 0.1.10 — 2026-11-23
 
 - Same app as 0.1.9. It is the first release the app can install by itself: from here on, updates arrive on their own instead of someone installing a new copy.

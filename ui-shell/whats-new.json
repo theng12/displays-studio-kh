@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.11",
+    "date": "2026-11-23",
+    "items": [
+      "Fixes the update check giving up before it starts: the bundled framework could not read the token path when it began with ~."
+    ]
+  },
+  {
     "version": "0.1.10",
     "date": "2026-11-23",
     "items": [
