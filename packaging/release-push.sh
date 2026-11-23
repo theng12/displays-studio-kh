@@ -19,6 +19,11 @@ APP="$1"; NAME="$2"; VERSION="$3"; DMG="$4"; LOG="$5"; TAGLINE="$6"
 [ -n "$TAGLINE" ] || { echo "the feed row needs a tagline: one plain sentence" >&2; exit 2; }
 [ -f "$DMG" ] || { echo "no such DMG: $DMG" >&2; exit 2; }
 [ -f "$LOG" ] || { echo "no such changelog: $LOG" >&2; exit 2; }
+# 1301 is an operational Mac, not a release host (owner, 2026-11-23: "no one should publish to
+# 1301"). There is no flag that re-enables it: the escape hatch this used to carry is how gateway
+# 0.2.305 reached that host at 12:45Z on 2026-11-23 (issue 20261123-103).
+echo "release-push: 1301 is retired as a release host — it runs apps, it does not publish them (owner, 2026-11-23). Hand the artifact and its sha256 to App Publisher; the upload to the app's own repo is theirs." >&2
+exit 2
 BASE=$(basename "$DMG")
 SSH=(ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
 
