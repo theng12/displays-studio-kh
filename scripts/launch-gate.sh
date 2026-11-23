@@ -30,6 +30,13 @@ printf '%s\n' "$OUT"
 
 [ "$RC" -eq 0 ] && { echo "launch-gate: PASS"; exit 0; }
 if [ "$RC" -ne 1 ]; then
+  # A single-instance app cannot be launched twice (LSMultipleInstancesProhibited), so while the
+  # installed copy runs there is nothing to measure. That is recorded as INVALID and is NOT a failure
+  # (Main, 2026-11-23): the line reaches the gate summary and the receipt instead of the step going red.
+  if printf '%s\n' "$OUT" | grep -qi 'already running'; then
+    echo "launch: INVALID — app already running (single-instance, LSMultipleInstancesProhibited); not measured"
+    exit 0
+  fi
   echo "launch-gate: INVALID — the shared check refused to measure (status $RC, its words above);"
   echo "             not a pass and not a verdict about the build."
   exit 75
