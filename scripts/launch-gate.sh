@@ -40,7 +40,10 @@ if [ "$RC" -ne 1 ]; then
   # (Main, 2026-11-23): the line reaches the gate summary and the receipt instead of the step going red.
   if printf '%s\n' "$OUT" | grep -qi 'already running'; then
     echo "launch: INVALID — app already running (single-instance, LSMultipleInstancesProhibited); not measured"
-    exit 0
+    # 75 = measured nothing. It is neither a pass nor a failure, so the gate must record INVALID and
+    # never a green step (Main's three-state ruling, 2026-11-24; row 20261123-72). A gate-run that
+    # does not know 75 yet treats it as a failed step, which is why this landed with that half.
+    exit 75
   fi
   echo "launch-gate: INVALID — the shared check refused to measure (status $RC, its words above);"
   echo "             not a pass and not a verdict about the build."
