@@ -67,6 +67,7 @@ Order, which is what makes the observation mean anything: gate PASS → asset pu
 serving 0.1.12 (200 at 16:35:22Z)** → only then the next start of the installed app.
 
 ```
+appcast at 16:35:22Z: <title>0.1.12</title>, enclosure length 4,702,003
 before: version 0.1.11 | pid 94535  | lstart Mon Nov 23 22:59:30 2026
 quit (graceful, no kill) 16:35:31Z
 start: open -g -j          23:35:31 local | pid 92740
@@ -82,6 +83,14 @@ after:  version 0.1.12 | pid 93256  | lstart Mon Nov 23 23:35:37 2026
   `88427ccd66fe9c2c71f87ff3ed8f840e31e9759c86a7cff4876970f75f9fff56`, equal to the binary inside
   `dist/Displays Studio KH-0.1.12.dmg`; `codesign --verify --deep --strict` valid.
 - Changed version **and** changed `lstart`, neither by hand: the app replaced itself.
+- **The trigger, named honestly.** The shim checks **once per launch** (`khsparkle.m:345`), so the
+  restart at 23:35:31 is what started the check; the download, install and relaunch were the app's own
+  work. This is not "it updated by itself while idle" — nothing was idle, and the app must be started
+  for a check to exist.
+- **Readings taken in the window are before the switch.** A snapshot between 23:35:31 and 23:35:37
+  can still show pid 94535 (0.1.11) alive; that is the performer, not a survivor of the update.
+- The relaunched 0.1.12 logged its own `[khsparkle] hold taken; starting Sparkle` at 23:35:37.818 and
+  found 0.1.12 current — **its own check running correctly, not a second update**.
 - `driver: <private>` is os_log redacting a runtime-formatted string (row `20261123-168`); the chain
   is carried by `download started` → `installing update` and by the new pid at the same second.
 

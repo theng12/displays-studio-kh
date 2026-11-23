@@ -8,3 +8,14 @@ after: version 0.1.12 | pid 93256 | lstart Mon Nov 23 23:35:37 2026
 binary now: 88427ccd66fe9c2c
 --- unified log, this app ---
 2026-11-23 23:31:58.226 Df displays-studio-kh[63962:1775530] [khsparkle] hold taken; starting Sparkle
+2026-11-23 23:32:01.886 Df displays-studio-kh[64455:17759bd] [khsparkle] <private>
+2026-11-23 23:32:06.340 Df displays-studio-kh[64915:1775de3] [khsparkle] hold taken; starting Sparkle
+2026-11-23 23:33:25.024 Df displays-studio-kh[73321:177a927] [khsparkle] hold taken; starting Sparkle
+2026-11-23 23:33:28.211 Df displays-studio-kh[73735:177ac49] [khsparkle] <private>
+2026-11-23 23:33:31.914 Df displays-studio-kh[74124:177af55] [khsparkle] hold taken; starting Sparkle
+2026-11-23 23:35:32.024 Df displays-studio-kh[92740:17840ad] [khsparkle] hold taken; starting Sparkle
+2026-11-23 23:35:32.468 Df displays-studio-kh[92740:1784099] [khsparkle] driver: <private>
+2026-11-23 23:35:32.468 Df displays-studio-kh[92740:1784099] [khsparkle] driver: download started
+2026-11-23 23:35:37.516 Df displays-studio-kh[92740:1784099] [khsparkle] driver: installing update
+2026-11-23 23:35:37.818 Df displays-studio-kh[93256:1784688] [khsparkle] hold taken; starting Sparkle
+=== done 2026-11-23T16:35:47Z ===
