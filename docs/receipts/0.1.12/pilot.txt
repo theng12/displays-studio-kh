@@ -1,0 +1,10 @@
+=== 2026-11-23T16:35:31Z pilot start: the appcast must already serve 0.1.12 ===
+appcast now: <title>0.1.12</title>
+before: version 0.1.11 | pid 94535 | lstart Mon Nov 23 22:59:30 2026    
+quit: none running, 2026-11-23T16:35:31Z
+started: pid 92740 at Mon Nov 23 23:35:31 2026    
+installed bundle is 0.1.12 after ~4s
+after: version 0.1.12 | pid 93256 | lstart Mon Nov 23 23:35:37 2026    
+binary now: 88427ccd66fe9c2c
+--- unified log, this app ---
+2026-11-23 23:31:58.226 Df displays-studio-kh[63962:1775530] [khsparkle] hold taken; starting Sparkle

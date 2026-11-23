@@ -1,0 +1,6 @@
+tool: selfupdate-behaviour-check.sh b408a789741c 12,617 bytes sha256 b408a789741c4525abbdc8d85a1b8a85c1b41773335c3e7ed82b81f93ef2f589
+artifact: dist/Displays Studio KH-0.1.12.dmg sha256:bc4fb6aada82a1642142c0668c36f2dcb6207846651d3a6cc448c1daf207da2d
+listener: 127.0.0.1:57377
+  as-shipped ($HOME/Library/KHUpdater/state/hold-token): PASS - [khsparkle] hold taken; starting Sparkle
+  missing (/nonexistent/hold-token-27541): PASS - [khsparkle] refused: hold token file missing or unreadable
+  absolute: PASS - [khsparkle] hold taken; starting Sparkle
