@@ -9,7 +9,7 @@
 # dyld::prepare). Deep verification checks the seal, not whether the process can load its own framework.
 # So the gate launches the artifact, and a death here FAILS the run.
 #
-# It is a menu-bar app: for the few seconds of the check one icon appears in the menu bar. Nothing is
+# It is a menu-bar app: for the ten seconds of the check one icon appears in the menu bar. Nothing is
 # activated, no window is created, no input is sent, and the process is killed the moment it is asserted.
 # It runs with its own HOME and its own hold port, so it touches none of the owner's preferences, login
 # items or the live 8650 listener.
@@ -44,26 +44,29 @@ echo "launch-check: entitlement present in the app inside the DMG"
 # 2. Run the copy from outside the read-only image, with its own HOME and hold port.
 cp -R "$SRC" "$RUN/app"
 mkdir -p "$RUN/home"
-VERSION=$(/usr/bin/python3 -I - "$RUN/app/Contents/Info.plist" <<'PY'
-import plistlib, sys
-print(plistlib.load(open(sys.argv[1], "rb")).get("CFBundleShortVersionString", ""))
-PY
-)
-[ "$VERSION" = "$WANT" ] || fail "the app inside the DMG is $VERSION, not $WANT"
 
 HOME="$RUN/home" DISPLAYS_STUDIO_HOLD_PORT=18651 \
   "$RUN/app/Contents/MacOS/displays-studio-kh" >"$RUN/app.log" 2>&1 &
 PID=$!
-sleep 6
+sleep 10
 
 if ! kill -0 "$PID" 2>/dev/null; then
   echo "--- app log ---" >&2
   tail -20 "$RUN/app.log" >&2 || true
-  fail "the app died within 6 s of launch (dyld or an early abort; the log above is why)"
+  fail "the app died within 10 s of launch (dyld or an early abort; the log above is why)"
 fi
 
-kill -0 "$PID" 2>/dev/null || fail "the app is not running after 6 s"
-echo "launch-check: alive after 6 s at pid $PID, version $VERSION"
+kill -0 "$PID" 2>/dev/null || fail "the app is not running after 10 s"
+echo "launch-check: alive after 10 s at pid $PID"
+# The version is read from the copy that is running, after it survived: the entitlement proves the
+# artifact is right; this proves the right artifact is what ran.
+VERSION=$(/usr/bin/python3 -I - "$RUN/app/Contents/Info.plist" <<'PYV'
+import plistlib, sys
+print(plistlib.load(open(sys.argv[1], "rb")).get("CFBundleShortVersionString", ""))
+PYV
+)
+[ "$VERSION" = "$WANT" ] || fail "the running copy is $VERSION, not $WANT"
+echo "launch-check: running copy is $VERSION"
 grep -q 'update hold listening' "$RUN/app.log" && echo "launch-check: the hold listener started"
 kill "$PID" 2>/dev/null || true
 wait "$PID" 2>/dev/null || true
