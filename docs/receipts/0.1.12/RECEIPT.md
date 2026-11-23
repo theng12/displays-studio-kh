@@ -44,11 +44,13 @@ launch: INVALID — app already running (single-instance, LSMultipleInstancesPro
 ```
 
 At the time of this gate `gate-run.sh` had no "measured nothing" status to map that to. **Fixed after
-the gate by `6f566e5`:** the wrapper exits 75 for this case, the runner records
-`INVALID launch (rc=75) — measured nothing`, and a run with such a step closes **`GATE INCOMPLETE`**
-(no `GATE-PASS.txt`) instead of `GATE PASS`. The next gate on this Mac, with the app installed, will
-therefore close INCOMPLETE — honest, not a regression — and a version cannot be released on that run
-alone; the launch has to be measured with Displays closed, or recorded UNMEASURED as here.
+the gate:** `6f566e5` makes the wrapper exit 75 for this case, and the settled runner —
+`_orchestra/tools/gate-run.sh`, **36,175 B, sha256 `8cb44a62c7b1…`**, whose own fixture asserts it —
+records `INVALID launch (rc=75) — measured nothing`, closes the run **`GATE INCOMPLETE`** with
+`GATE-INCOMPLETE.txt` and no `GATE-PASS.txt`, and **exits 76**, so a `&&` or a publish step cannot read
+an incomplete run as green. The next gate on this Mac, with the app installed, will therefore exit 76
+— honest, not a regression — and a version cannot be released on that run alone; the launch has to be
+measured with Displays closed, or recorded UNMEASURED as here.
 
 - `scan-dmg: clean`, 89 files, `scan-receipt {"sha256": "bc4fb6aa…2da2d", "exit": 0,
   "scanner_version": "scan-dmg/2026-11-20", "at": "2026-11-23T16:32:18Z", "excused": []}`.
