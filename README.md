@@ -23,14 +23,14 @@ Only the `webview-check` build accepts `--test-mode <dir>` (the same hidden isol
 
 ## Release
 
-Build, sign and package here, then publish through the release host:
+Build, sign and package here; the DMG then goes to this app's own GitHub release, and the appcast
+item is written from the gated bytes:
 
 ```sh
 bash scripts/build-mac.sh
-packaging/release-push.sh displays-studio "Displays Studio KH" 0.1.0 \
-  "dist/Displays Studio KH-0.1.0.dmg" CHANGELOG.md "Set the brightness of external monitors from the menu bar."
 ```
 
-The first writes `dist/Displays Studio KH-<version>.dmg` signed with the shared KH identity and a
-receipt beside it; the second stages the DMG on 1301, publishes there, and reads the served feed
-back. This app ships no update-hold route yet, so its feed entry carries no holdURL.
+`build-mac.sh` writes `dist/Displays Studio KH-<version>.dmg` signed with the shared KH identity.
+1301 is not a release host (owner, 2026-11-23): App Publisher uploads the artifact to
+`theng12/displays-studio-kh` and reports the download URL and sha256, and only then is the item
+added to `appcast.xml` — the signed feed this app updates itself from.

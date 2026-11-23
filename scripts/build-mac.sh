@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build, sign and package Displays Studio KH for this Mac.
-# This Mac builds; publishing happens on 1301 with packaging/release-push.sh.
+# This Mac builds; the artifact goes to the app's own GitHub repo (App Publisher), then the appcast.
 #
 #   bash scripts/build-mac.sh            # signed .app + DMG into dist/
 #   bash scripts/build-mac.sh --check    # versions, tools and identity only
