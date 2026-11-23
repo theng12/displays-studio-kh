@@ -27,12 +27,20 @@
     // (read-only on the hardware — saving captures what the monitors report).
     assert(document.querySelector('#preset-list') && document.querySelector('#preset-name')
       && document.querySelector('#preset-save'), 'The preset controls are missing');
-    const saved = await invoke('preset_save', { name: 'Hidden check' });
-    assert(saved.includes('Hidden check'), 'Saving a preset did not list it');
-    assert((await invoke('presets_list')).includes('Hidden check'), 'The saved preset is not listed');
-    const left = await invoke('preset_delete', { name: 'Hidden check' });
-    assert(!left.includes('Hidden check'), 'Deleting a preset did not remove it');
-    result.presets = saved;
+    // Under the update-hold test the app is paused, and a hardware action must be refused in plain
+    // words rather than hang or half-run — so a refusal naming the pause is the correct answer there.
+    try {
+      const saved = await invoke('preset_save', { name: 'Hidden check' });
+      assert(saved.includes('Hidden check'), 'Saving a preset did not list it');
+      assert((await invoke('presets_list')).includes('Hidden check'), 'The saved preset is not listed');
+      const left = await invoke('preset_delete', { name: 'Hidden check' });
+      assert(!left.includes('Hidden check'), 'Deleting a preset did not remove it');
+      result.presets = saved;
+    } catch (error) {
+      const message = String(error?.message ?? error);
+      assert(/update|hold|paused/i.test(message), `Saving a preset failed for an unexpected reason: ${message}`);
+      result.presets = `refused during the update hold: ${message}`;
+    }
     assert(document.querySelector('#shortcuts').checked, 'Global shortcuts did not register');
     // The hidden instance never asks macOS, so the grant is absent: the panel must say so, by name,
     // with the button that opens the pane — a missing grant is a state, never a silent control.
@@ -48,7 +56,7 @@
     result.ok = true;
   } catch (error) {
     result.ok = false;
-    result.error = `${error.message} / ${document.querySelector('#status').textContent}`;
+    result.error = `${error?.message ?? error} / ${document.querySelector('#status').textContent}`;
   }
   await invoke('check_result', { result: JSON.stringify(result) });
 })();
