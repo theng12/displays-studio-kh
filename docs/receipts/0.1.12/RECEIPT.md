@@ -79,9 +79,18 @@ start: open -g -j          23:35:31 local | pid 92740
 after:  version 0.1.12 | pid 93256  | lstart Mon Nov 23 23:35:37 2026
 ```
 
-- **The installed binary is byte-identical to the published one:** sha256
-  `88427ccd66fe9c2c71f87ff3ed8f840e31e9759c86a7cff4876970f75f9fff56`, equal to the binary inside
-  `dist/Displays Studio KH-0.1.12.dmg`; `codesign --verify --deep --strict` valid.
+- **The installed binary is byte-identical to the published one** — the bytes running on this Mac are
+  the bytes that were released, which is what makes "it updated itself" a measurement rather than a
+  version string:
+
+  ```
+  /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+       sha256 88427ccd66fe9c2c71f87ff3ed8f840e31e9759c86a7cff4876970f75f9fff56   12,605,600 B
+  in dist/Displays Studio KH-0.1.12.dmg
+       sha256 88427ccd66fe9c2c71f87ff3ed8f840e31e9759c86a7cff4876970f75f9fff56   12,605,600 B   identical
+  ```
+
+  `codesign --verify --deep --strict` valid.
 - Changed version **and** changed `lstart`, neither by hand: the app replaced itself.
 - **The trigger, named honestly.** The shim checks **once per launch** (`khsparkle.m:345`), so the
   restart at 23:35:31 is what started the check; the download, install and relaunch were the app's own
@@ -120,6 +129,17 @@ after:  version 0.1.12 | pid 93256  | lstart Mon Nov 23 23:35:37 2026
 The first stopped run's DMG was retired recoverably to
 `$HOME/Desktop/_trash/displays-studio-kh/2026-11-23 0.1.12 built, gate stopped after a mis-targeted scan step/`
 with a manifest; it was never published.
+
+## Retention
+
+`dist/` holds two artifacts, named so a later reader does not have to date the sentence:
+
+- `Displays Studio KH-0.1.12.dmg` — sha256 `bc4fb6aa…2da2d`, 4,702,003 bytes (this release);
+- `Displays Studio KH-0.1.11.dmg` — the one before it.
+
+The 0.1.10 installer was moved recoverably to
+`$HOME/Desktop/_trash/displays-studio-kh/2026-11-23 keep current+previous after 0.1.12/` with a
+manifest; it stays downloadable from its GitHub release.
 
 ## Not true yet
 
