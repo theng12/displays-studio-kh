@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.6",
+    "date": "2026-11-23",
+    "items": [
+      "Same app as 0.1.5, repackaged so the release page can keep both the current and the previous download."
+    ]
+  },
+  {
     "version": "0.1.5",
     "date": "2026-11-22",
     "items": [

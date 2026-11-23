@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.6 — 2026-11-23
+
+- Same code as 0.1.5. Republished so the feed's current and previous are both scan-clean, which lets the release page carry current + previous again.
+
 ## 0.1.5 — 2026-11-22
 
 - Build the release binary with remapped source paths, so the package carries no local build path (the public release scan stops on one).
