@@ -20,7 +20,10 @@ fail() { printf 'FAIL  %s\n' "$1" >&2; exit 1; }
 RUN="$(mktemp -d "${TMPDIR:-/tmp}/displays-studio-hold.XXXXXX")"
 mkdir -p "$RUN/home"
 export HOME="$RUN/home"
-PORT="${HOLD_TEST_PORT:-18650}"
+# A fixed default collided with another session's harness squatting 18650–18653 (2026-11-23), so the
+# test takes a port the kernel says is free. HOLD_TEST_PORT still pins one when that is wanted.
+# shortcut: the port can be taken between the probe and the app's bind; the test then fails loudly.
+PORT="${HOLD_TEST_PORT:-$(/usr/bin/python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')}"
 export DISPLAYS_STUDIO_HOLD_PORT="$PORT"
 export DISPLAYS_STUDIO_TEST_WORK_MS="${HOLD_TEST_WORK_MS:-6000}"
 TOKEN_FILE="$RUN/hold-token"
