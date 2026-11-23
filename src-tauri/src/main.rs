@@ -36,6 +36,7 @@ mod sparkle {
 mod hardware;
 mod hold;
 mod login;
+mod presets;
 
 use std::{path::PathBuf, sync::{Arc, Mutex}};
 use tauri::{menu::{Menu, MenuItem, PredefinedMenuItem}, tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, ActivationPolicy, AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
@@ -80,6 +81,56 @@ async fn scan(app: AppHandle) -> Result<Vec<hardware::Display>, String> {
 #[tauri::command]
 async fn set_level(app: AppHandle, display: String, code: u8, percent: u16) -> Result<hardware::Level, String> {
     ddc(&app, "A display change", move || hardware::set(&display, code, percent)).await
+}
+
+fn presets_path(app: &AppHandle) -> Result<PathBuf, String> {
+    pref_file(app, "presets.json")
+}
+
+fn preset_names(presets: &[presets::Preset]) -> Vec<String> {
+    presets.iter().map(|preset| preset.name.clone()).collect()
+}
+
+#[tauri::command]
+fn presets_list(app: AppHandle) -> Result<Vec<String>, String> {
+    Ok(preset_names(&presets::load(&presets_path(&app)?)))
+}
+
+/// Remembers what the displays report right now. The read happens through the same hold and lock as
+/// any other hardware action, so an update pause refuses it in plain words instead of racing it.
+#[tauri::command]
+async fn preset_save(app: AppHandle, name: String) -> Result<Vec<String>, String> {
+    let name = presets::clean_name(&name)?;
+    let entries = ddc(&app, "Saving a preset", hardware::snapshot).await?;
+    if entries.is_empty() {
+        return Err("Nothing to save: no monitor reported a setting.".into());
+    }
+    let path = presets_path(&app)?;
+    let mut list = presets::load(&path);
+    let preset = presets::Preset {
+        name,
+        entries: entries.into_iter().map(|(display, code, percent)| presets::Entry { display, code, percent }).collect(),
+    };
+    presets::upsert(&mut list, preset);
+    presets::save(&path, &list)?;
+    Ok(preset_names(&list))
+}
+
+#[tauri::command]
+async fn preset_apply(app: AppHandle, name: String) -> Result<hardware::All, String> {
+    let preset = presets::load(&presets_path(&app)?).into_iter().find(|preset| preset.name == name)
+        .ok_or("That preset has gone. Save it again.")?;
+    let items = preset.entries.into_iter().map(|entry| (entry.display, entry.code, entry.percent)).collect();
+    ddc(&app, "Applying a preset", move || hardware::set_many(items)).await
+}
+
+#[tauri::command]
+fn preset_delete(app: AppHandle, name: String) -> Result<Vec<String>, String> {
+    let path = presets_path(&app)?;
+    let mut list = presets::load(&path);
+    presets::remove(&mut list, &name);
+    presets::save(&path, &list)?;
+    Ok(preset_names(&list))
 }
 
 fn keys() -> [Shortcut; 2] {
@@ -306,9 +357,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }).build());
     #[cfg(not(feature = "webview-check"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel]);
+    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete]);
     #[cfg(feature = "webview-check")]
-    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, check_result]);
+    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, check_result]);
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);

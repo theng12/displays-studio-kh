@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.12 — 2026-11-23
+
+- Saved presets. Name the settings your monitors report right now — Evening, Day, whatever fits — and put them back with one click. A preset remembers only what a monitor actually reported, writes only to the display it was saved from, and says so in plain words when a display is no longer connected instead of changing a different one.
+
 ## 0.1.11 — 2026-11-23
 
 - Fixes the update check refusing to start. The bundled update framework looked for the token file that lets it ask for a quiet moment, and could not read a path written with `~` — so it gave up before checking, silently. It now expands that path. Nothing else changes.

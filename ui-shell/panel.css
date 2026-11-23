@@ -40,6 +40,10 @@ section { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap
 .intro button { justify-self: start; }
 #status:not(:empty) { margin: 4px 0 12px; }
 #status[data-error] { color: var(--error); }
+.preset-row { display: flex; align-items: center; gap: 6px; }
+.preset-row label { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+#preset-list, #preset-name { flex: 1; min-width: 0; min-height: 26px; padding: 3px 6px; color: inherit;
+  background: var(--control); border: 1px solid var(--line); border-radius: 6px; }
 footer { border-top: 1px solid var(--line); padding-top: 10px; }
 footer label { display: flex; align-items: center; gap: 6px; width: fit-content; }
 footer input { margin: 0; }

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.12",
+    "date": "2026-11-23",
+    "items": [
+      "Save the settings your monitors report as a preset — Evening, Day, whatever you name it — and put them back with one click.",
+      "A preset only writes to the display it was saved from: a monitor that is no longer connected is reported, never swapped for another."
+    ]
+  },
+  {
     "version": "0.1.11",
     "date": "2026-11-23",
     "items": [

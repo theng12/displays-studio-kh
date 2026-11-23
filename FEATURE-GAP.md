@@ -31,7 +31,7 @@ never guessed.
 | Keyboard keys follow the selected display | Yes | Partial: the keys step **every** external display | partial | 0.1.1 | `hardware.rs` `step()` loops over all monitors; there is no selection concept yet |
 | Extra hotkeys per display | Yes | One global pair for brighter/dimmer | partial | 0.1.0 | `main.rs` `keys()`, one shortcut pair; no per-display bindings |
 | Menu-bar icon options (icon style, show value) | Yes | Fixed template icon; tooltip carries the last step | partial | 0.1.0 | `main.rs` `TrayIconBuilder` `icon_as_template(true)`, `set_tooltip`; no options |
-| Saved presets | Yes | None | missing | — | No preset model, no storage, no command |
+| Saved presets | Yes | A named set of what the monitors reported; applying writes only to the display it was saved from and reports a display that is gone | present | 0.1.12 | `presets.rs` (load/save/upsert/remove/clean_name + 5 tests), `hardware::snapshot`/`set_many` (2 tests), panel `#presets`; the hidden check saves, lists and deletes one |
 | App-linked presets | Yes | None | missing | — | Same; needs presets first |
 | Scheduled presets (time of day) | Yes | None | missing | — | No scheduler; a timer would also collide with "nothing runs when idle" |
 | Sunrise/sunset scheduling | Yes | None | missing | — | Needs location input and a scheduler |

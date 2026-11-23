@@ -29,6 +29,29 @@ function setBusy(value) {
   busy = value;
   refreshButton.disabled = value;
   if (allSlider) allSlider.disabled = value;
+  presetApply.disabled = value || !presetList.value;
+  presetDelete.disabled = value || !presetList.value;
+  presetSave.disabled = value;
+}
+
+// Saved presets: a name, the settings it remembers, and the two buttons that act on it.
+const presetList = $('#preset-list');
+const presetName = $('#preset-name');
+const presetApply = $('#preset-apply');
+const presetDelete = $('#preset-delete');
+const presetSave = $('#preset-save');
+
+function showPresets(names) {
+  const previous = presetList.value;
+  presetList.replaceChildren(...(names.length
+    ? names.map((name) => { const option = element('option', name); option.value = name; return option; })
+    : [Object.assign(element('option', 'None saved'), { value: '' })]));
+  if (names.includes(previous)) presetList.value = previous;
+  presetApply.disabled = presetDelete.disabled = !presetList.value;
+}
+
+function chosenPreset() {
+  return presetList.value;
 }
 
 function reconcile(changed) {
@@ -222,6 +245,59 @@ keys.addEventListener('change', async () => {
 $('#open-accessibility').addEventListener('click', () => {
   invoke('open_accessibility_settings').catch((error) => status(String(error), true));
 });
+presetList.addEventListener('change', () => {
+  presetApply.disabled = presetDelete.disabled = !presetList.value;
+});
+presetSave.addEventListener('click', async () => {
+  if (busy) return;
+  const name = presetName.value.trim();
+  if (!name) {
+    status('Give the preset a name first.', true);
+    presetName.focus();
+    return;
+  }
+  setBusy(true);
+  status('Saving the settings your monitors report now…');
+  try {
+    showPresets(await invoke('preset_save', { name }));
+    presetName.value = '';
+    presetList.value = name;
+    presetApply.disabled = presetDelete.disabled = false;
+    status(`Saved "${name}".`);
+  } catch (error) {
+    status(String(error), true);
+  } finally {
+    setBusy(false);
+  }
+});
+presetApply.addEventListener('click', async () => {
+  const name = chosenPreset();
+  if (busy || !name) return;
+  setBusy(true);
+  status(`Applying "${name}"…`);
+  try {
+    const result = await invoke('preset_apply', { name });
+    reconcile(result.changed);
+    status(result.message, Boolean(result.failed));
+  } catch (error) {
+    status(String(error), true);
+  } finally {
+    setBusy(false);
+  }
+});
+presetDelete.addEventListener('click', async () => {
+  const name = chosenPreset();
+  if (busy || !name) return;
+  setBusy(true);
+  try {
+    showPresets(await invoke('preset_delete', { name }));
+    status(`Deleted "${name}".`);
+  } catch (error) {
+    status(String(error), true);
+  } finally {
+    setBusy(false);
+  }
+});
 $('#version').addEventListener('click', () => news.showModal());
 news.addEventListener('click', (event) => {
   if (event.target !== news) return;
@@ -257,6 +333,7 @@ async function initialise() {
     updateAccessNote();
     $('#version').textContent = `Displays Studio KH · v${version}`;
     $('#news-version').textContent = `v${version}`;
+    showPresets(await invoke('presets_list'));
     await refresh();
     const notes = JSON.parse(releaseNotes).find((item) => item.version === version)?.items;
     if (!notes?.length) throw new Error(`Release notes are missing for v${version}.`);

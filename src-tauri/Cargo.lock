@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "displays-studio-kh"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "core-graphics 0.24.0",
  "ddc",

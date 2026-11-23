@@ -158,6 +158,57 @@ pub fn set_all(code: u8, percent: u16) -> Result<All, String> {
     Ok(apply_all(&mut targets, code, percent))
 }
 
+/// What the external displays report right now — the state a preset remembers.
+/// A setting a monitor does not report is left out, so applying cannot invent a value.
+pub fn snapshot() -> Result<Vec<(String, u8, u16)>, String> {
+    let mut out = Vec::new();
+    for mut monitor in monitors()? {
+        let display = id(monitor.handle());
+        for code in FEATURES {
+            if let Ok((value, max)) = read(&mut monitor, code) {
+                if let Some(percent) = level(code, value, max).percent {
+                    out.push((display.clone(), code, percent));
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// One preset's settings, in order. Each one goes to the display that reported it.
+fn apply_items(targets: &mut [impl Target], items: &[(String, u8, u16)]) -> All {
+    let mut changed = Vec::new();
+    let mut failed = 0;
+    for (display, code, percent) in items {
+        let target = targets.iter_mut().find(|t| t.id() == *display);
+        if !FEATURES.contains(code) || *percent > 100 {
+            failed += 1;
+            continue;
+        }
+        match target {
+            Some(target) => match target.apply(*code, *percent) {
+                Ok(value) => changed.push((target.id(), value)),
+                Err(_) => failed += 1,
+            },
+            // The display the preset was saved on is not here: say so, never guess another one.
+            None => failed += 1,
+        }
+    }
+    let message = match (changed.len(), failed) {
+        (0, _) => "Nothing in this preset could be applied. Refresh to check the displays.".to_string(),
+        (n, 0) => format!("Applied {n} settings."),
+        (n, f) => format!("Applied {n} of {} settings. Refresh to check the rest.", n + f),
+    };
+    All { changed, message, failed: failed > 0 }
+}
+
+pub fn set_many(items: Vec<(String, u8, u16)>) -> Result<All, String> {
+    let mut targets: Vec<HardwareTarget> = monitors()?.into_iter()
+        .map(|m| HardwareTarget { id: id(m.handle()), monitor: m })
+        .collect();
+    Ok(apply_items(&mut targets, &items))
+}
+
 /// One sentence for a batch result, and whether it counts as a failure.
 fn summary(changed: usize, failed: usize, what: &str) -> (String, bool) {
     match (changed, failed) {
@@ -316,5 +367,42 @@ mod tests {
             ("unconfirmed".into(), 0x62, 50),
             ("confirmed".into(), 0x62, 128),
         ]);
+    }
+
+    #[test]
+    fn a_preset_writes_each_setting_to_the_display_that_reported_it() {
+        let writes = Rc::new(RefCell::new(Vec::new()));
+        let mut targets = [
+            fake("display-1-aaaa-bbbb-1111", 100, true, true, &writes),
+            fake("display-2-cccc-dddd-2222", 255, true, true, &writes),
+        ];
+        let items = [
+            ("display-2-cccc-dddd-2222".to_string(), BRIGHTNESS, 20),
+            ("display-1-aaaa-bbbb-1111".to_string(), 0x12, 60),
+            ("display-2-cccc-dddd-2222".to_string(), 0x62, 80),
+        ];
+        let all = apply_items(&mut targets, &items);
+        assert!(!all.failed, "{}", all.message);
+        assert_eq!(all.changed.len(), 3);
+        assert_eq!(*writes.borrow(), vec![
+            ("display-2-cccc-dddd-2222".into(), BRIGHTNESS, 51),
+            ("display-1-aaaa-bbbb-1111".into(), 0x12, 60),
+            ("display-2-cccc-dddd-2222".into(), 0x62, 204),
+        ]);
+    }
+
+    #[test]
+    fn a_preset_naming_a_display_that_is_gone_is_failed_not_redirected() {
+        let writes = Rc::new(RefCell::new(Vec::new()));
+        let mut targets = [fake("here", 100, true, true, &writes)];
+        let items = [
+            ("gone".to_string(), BRIGHTNESS, 40),
+            ("here".to_string(), BRIGHTNESS, 40),
+        ];
+        let all = apply_items(&mut targets, &items);
+        assert!(all.failed);
+        assert_eq!(all.changed.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), vec!["here"]);
+        assert_eq!(*writes.borrow(), vec![("here".into(), BRIGHTNESS, 40)]);
+        assert!(all.message.contains("1 of 2"), "{}", all.message);
     }
 }

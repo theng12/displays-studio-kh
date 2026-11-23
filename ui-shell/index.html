@@ -19,6 +19,17 @@
   <p id="accessibility-note" role="alert" hidden>Using F1/F2 needs permission: allow Displays Studio KH in System Settings › Privacy &amp; Security › Accessibility, then switch it on here again. <button type="button" id="open-accessibility">Open System Settings</button></p>
   <main aria-label="External monitors" id="displays"></main>
   <p id="status" role="status" aria-live="polite">Checking your displays…</p>
+  <section id="presets" aria-label="Saved presets">
+    <div class="preset-row">
+      <label>Preset <select id="preset-list" aria-label="Saved preset"><option value="">None saved</option></select></label>
+      <button type="button" id="preset-apply" disabled>Apply</button>
+      <button type="button" id="preset-delete" disabled>Delete</button>
+    </div>
+    <div class="preset-row">
+      <input id="preset-name" maxlength="40" placeholder="Name for these settings" aria-label="Preset name">
+      <button type="button" id="preset-save">Save current</button>
+    </div>
+  </section>
   <footer>
     <label><input id="shortcuts" type="checkbox" disabled> Brightness shortcuts</label>
     <label><input id="login" type="checkbox" checked disabled> Start at login</label>
