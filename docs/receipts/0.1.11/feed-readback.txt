@@ -1,0 +1,31 @@
+# Feed and artifact readback — Displays Studio KH 0.1.11 (taken 2026-11-23T15:19–15:20Z)
+
+## 1. The published asset, fetched anonymously (no credentials) and hashed
+
+$ curl -fsSL -o <tmp>/a.dmg \
+    https://github.com/theng12/displays-studio-kh/releases/download/0.1.11/73278df4d207-Displays.Studio.KH-0.1.11.dmg
+downloaded 4661024 bytes
+73278df4d2078b8739ca551804c39f3444ce07c88537a9ce224dd414aee95b78  <tmp>/a.dmg
+cmp -> identical to the gated dist/Displays Studio KH-0.1.11.dmg
+
+## 2. The appcast, read back from Pages after the item was committed (27ced2d)
+
+$ curl -s https://theng12.github.io/displays-studio-kh/appcast.xml   -> HTTP 200
+<title>0.1.11</title>
+<sparkle:version>0.1.11</sparkle:version>
+<sparkle:shortVersionString>0.1.11</sparkle:shortVersionString>
+<sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+<enclosure url="https://github.com/theng12/displays-studio-kh/releases/download/0.1.11/73278df4d207-Displays.Studio.KH-0.1.11.dmg"
+           length="4661024" type="application/octet-stream"
+           sparkle:edSignature="ldz879NPJJXbK3x+j6Q29oMtJBUoxM2R9Cjq0ahg44G60Uodyulv8BMIPEJOnbNlJluzcCqeTqGOH/Wi/HTxCw=="/>
+two items in the file: 0.1.11 (first) and 0.1.10
+
+## 3. The card feed on the Page, decoded from the signed envelope, same minute
+
+$ curl -s https://theng12.github.io/kh-releases/release.json | base64 -d (the "feed" member)
+published_at 2026-11-23T15:07:48.277Z
+displays-studio  file bc531508d48d-Displays.Studio.KH-0.1.10.dmg  bytes 5200302
+
+**The card still offers 0.1.10 and the app's own updater now offers 0.1.11.** The Page feed has not
+been regenerated since 15:07:48Z; the 0.1.11 release was created at 15:18:46Z. That is a card/feed
+lag, not an app fault: the app updates from the appcast only.

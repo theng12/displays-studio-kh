@@ -1,0 +1,124 @@
+=== 2026-11-23T15:21:00Z loop proof: performer 0.1.10 (relabelled copy) -> published 0.1.11 ===
+installed copy quit; port 8650 free: yes
+before: short 0.1.11 | bundle 0.1.11
+performer now reports 0.1.10 at /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop.muhCyg/app/Contents/Info.plist
+KHHoldURL http://127.0.0.1:8650/api/maintenance/hold | KHHoldTokenFile ~/Library/KHUpdater/state/hold-token
+started pid 47125 at Mon Nov 23 22:21:04 2026    
+plist read back: 0.1.11 after ~0s
+processes after install:
+installed bundle version now: 0.1.11
+--- app log ---
+sandbox_extension_issue_file_to_process failed for /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop.muhCyg/app: 1 (Operation not permitted)
+update hold listening on http://127.0.0.1:8650/api/maintenance/hold
+held new work for an update (paused 120 s)
+update hold: safe in 0 ms (ceiling 20 s, pause 120 s, 0 in flight)
+2026-11-23 22:21:05.586 displays-studio-kh[47125:23520953] [khsparkle] hold taken; starting Sparkle
+2026-11-23 22:21:06.973 displays-studio-kh[47125:23520704] [khsparkle] driver: update found 0.1.11
+2026-11-23 22:21:06.973 displays-studio-kh[47125:23520704] [khsparkle] driver: download started
+2026-11-23 22:21:09.723 displays-studio-kh[47125:23520704] [khsparkle] driver: installing update
+app
+run.log
+--- end of run.log tail ---
+sandbox_extension_issue_file_to_process failed for /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop.muhCyg/app: 1 (Operation not permitted)
+update hold listening on http://127.0.0.1:8650/api/maintenance/hold
+held new work for an update (paused 120 s)
+update hold: safe in 0 ms (ceiling 20 s, pause 120 s, 0 in flight)
+2026-11-23 22:21:05.586 displays-studio-kh[47125:23520953] [khsparkle] hold taken; starting Sparkle
+2026-11-23 22:21:06.973 displays-studio-kh[47125:23520704] [khsparkle] driver: update found 0.1.11
+2026-11-23 22:21:06.973 displays-studio-kh[47125:23520704] [khsparkle] driver: download started
+2026-11-23 22:21:09.723 displays-studio-kh[47125:23520704] [khsparkle] driver: installing update
+48439 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:21:23Z ===
+=== 2026-11-23T15:24:12Z loop proof, pass 2: watching for the relaunch ===
+performer reports 0.1.10
+old pid 59690 started Mon Nov 23 22:24:13 2026    
+bundle on disk is 0.1.11 after ~6s
+old pid alive now: no
+bundle version now: 0.1.11
+binary now: b1bef802e0678738
+--- app log ---
+update hold listening on http://127.0.0.1:8650/api/maintenance/hold
+held new work for an update (paused 120 s)
+update hold: safe in 0 ms (ceiling 20 s, pause 120 s, 0 in flight)
+2026-11-23 22:24:13.804 displays-studio-kh[59690:23558787] [khsparkle] hold taken; starting Sparkle
+2026-11-23 22:24:14.166 displays-studio-kh[59690:23558725] [khsparkle] driver: update found 0.1.11
+2026-11-23 22:24:14.166 displays-studio-kh[59690:23558725] [khsparkle] driver: download started
+2026-11-23 22:24:16.170 displays-studio-kh[59690:23558725] [khsparkle] driver: installing update
+61964 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:24:53Z ===
+=== 2026-11-23T15:25:40Z loop proof, pass 3: performer launched through LaunchServices ===
+performer reports 0.1.10
+Application /System/Library/CoreServices/Finder.app was already running and so the redirected stdin/stdout/stderr provided could not be set
+LaunchServices start: pids []  start: 
+=== 2026-11-23T15:26:09Z loop proof, pass 3: performer launched through LaunchServices ===
+performer reports 0.1.10
+LaunchServices start: pids []  start: 
+bundle version now: 0.1.10
+binary now: b1bef802e0678738
+bundle version now: 0.1.10
+binary now: b1bef802e0678738
+NO PROCESS of the updated bundle seen within 50 s
+--- captured output ---
+grep: /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop3.ZOG4ha/out.log: No such file or directory
+(none)
+--- still running now ---
+73212 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:28:02Z ===
+NO PROCESS of the updated bundle seen within 50 s
+--- captured output ---
+grep: /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop3.G3NiDE/out.log: No such file or directory
+(none)
+--- still running now ---
+73212 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:28:30Z ===
+=== 2026-11-23T15:28:32Z loop proof, pass 4: relabelled AND re-signed performer, launched by LaunchServices ===
+performer reports 0.1.10
+/var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-loop4.kvWGbT/app: replacing existing signature
+performer signature: valid (deep, strict)
+open rc=0
+performer pids [] started []
+=== 2026-11-23T15:30:57Z loop proof, pass 5: performer in ~/Applications, started by LaunchServices ===
+nothing of this app running; port 8650: free
+performer reports 0.1.10
+performer signature: valid (deep, strict)
+performer binary sha256 e8037cd4d1e00298 (re-signed, so differs from the release's b1bef802e0678738)
+open rc=0
+performer pid [] started []
+bundle on disk is 0.1.11 after ~4s
+bundle version now: 0.1.11
+binary now: b1bef802e0678738 (release binary b1bef802e0678738)
+signature after install: valid
+=== 2026-11-23T15:32:13Z loop proof, pass 6: same fixture, literal pgrep patterns, started by LaunchServices ===
+nothing of this app running; port 8650: free
+performer reports 0.1.10
+performer signature: valid (deep, strict)
+performer binary sha256 4247f8814e301220 (re-signed, so differs from the release's b1bef802e0678738)
+open rc=0
+performer pid [85524
+85591
+85592] started [Mon Nov 23 22:32:19 2026    
+Mon Nov 23 22:32:23 2026    
+Mon Nov 23 22:32:23 2026    ]
+bundle on disk is 0.1.11 after ~4s
+bundle version now: 0.1.11
+binary now: b1bef802e0678738 (release binary b1bef802e0678738)
+signature after install: valid
+relaunched pid 85630 started Mon Nov 23 22:32:24 2026    
+RELAUNCH PROVEN: start time changed from [Mon Nov 23 22:32:19 2026    
+Mon Nov 23 22:32:23 2026    
+Mon Nov 23 22:32:23 2026    ] to [Mon Nov 23 22:32:24 2026    ]
+--- unified log, this app, last 6 min ---
+2026-11-23 22:31:02.766 Df displays-studio-kh[82472:168a29c] [khsparkle] driver: <private>
+2026-11-23 22:31:02.766 Df displays-studio-kh[82472:168a29c] [khsparkle] driver: download started
+2026-11-23 22:31:05.985 Df displays-studio-kh[82472:168a29c] [khsparkle] driver: installing update
+2026-11-23 22:31:06.234 Df displays-studio-kh[82767:168a72d] [khsparkle] hold taken; starting Sparkle
+2026-11-23 22:31:35.882 Df displays-studio-kh[83919:168b7b7] [khsparkle] <private>
+2026-11-23 22:32:20.094 Df displays-studio-kh[85524:168ced6] [khsparkle] hold taken; starting Sparkle
+2026-11-23 22:32:21.933 Df displays-studio-kh[85524:168ceb5] [khsparkle] driver: <private>
+2026-11-23 22:32:21.933 Df displays-studio-kh[85524:168ceb5] [khsparkle] driver: download started
+2026-11-23 22:32:24.001 Df displays-studio-kh[85524:168ceb5] [khsparkle] driver: installing update
+2026-11-23 22:32:24.227 Df displays-studio-kh[85630:168d13f] [khsparkle] hold taken; starting Sparkle
+--- cleanup ---
+86148 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+installed app version: 0.1.9
+=== done 2026-11-23T15:32:34Z ===

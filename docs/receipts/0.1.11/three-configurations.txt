@@ -1,0 +1,61 @@
+=== 2026-11-23T15:13:33Z 0.1.11: three configurations + launch measurement ===
+dmg: $HOME/Developer/_orchestra/developer-utilities/displays-studio-kh/app/dist/Displays Studio KH-0.1.11.dmg sha256 73278df4d2078b8739ca551804c39f3444ce07c88537a9ce224dd414aee95b78 4661024 bytes
+installed copy: quit, none running
+hdiutil: WARNING: 'hdiutil attach -nobrowse -readonly -mountpoint ...' is deprecated. Please use 'diskutil image attach --mountOptions nobrowse --readOnly --mountPoint ...' instead.
+hdiutil: WARNING: 'hdiutil detach ...' is deprecated. Please use 'diskutil eject ...' instead.
+copy from DMG: /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//dskh-table.RezGXh/app  CFBundleShortVersionString=0.1.11
+plist row keep KHHoldTokenFile = ~/Library/KHUpdater/state/hold-token
+/tmp/dskh-table-011.sh: line 27: 74492 Terminated: 15          "$T/app/Contents/MacOS/displays-studio-kh" > "$T/app.log" 2>&1
+--- row: as shipped (~/…) ---
+wire:
+POST /api/maintenance/hold HTTP/1.1
+Content-Length: 0
+Authorization: Bearer <token, redacted>
+app log (shim lines):
+2026-11-23 22:13:48.792 displays-studio-kh[74492:23258801] [khsparkle] refused: hold request failed: The network connection was lost.
+plist row missing KHHoldTokenFile = /nonexistent/hold-token
+/tmp/dskh-table-011.sh: line 27: 74864 Terminated: 15          "$T/app/Contents/MacOS/displays-studio-kh" > "$T/app.log" 2>&1
+--- row: token path does not exist (no auth) ---
+wire:
+  (no request arrived)
+app log (shim lines):
+2026-11-23 22:14:02.354 displays-studio-kh[74864:23260388] [khsparkle] refused: hold token file missing or unreadable: /nonexistent/hold-token
+plist row absolute KHHoldTokenFile = $HOME/Library/KHUpdater/state/hold-token
+/tmp/dskh-table-011.sh: line 27: 77731 Terminated: 15          "$T/app/Contents/MacOS/displays-studio-kh" > "$T/app.log" 2>&1
+--- row: absolute path (control) ---
+wire:
+POST /api/maintenance/hold HTTP/1.1
+Content-Length: 0
+Authorization: Bearer <token, redacted>
+app log (shim lines):
+2026-11-23 22:14:18.432 displays-studio-kh[77731:23266842] [khsparkle] refused: hold request failed: The network connection was lost.
+launch pin: $HOME/Developer/_orchestra/tools/pinned/install-launch-check-e1a4850e0c342d3e.sh sha256 e1a4850e0c342d3eae2946d59cea8fe013fc28b7f02fda6d19565d1c61171e4e
+tool: install-launch-check.sh e1a4850e0c34 at $HOME/Developer/_orchestra/tools/pinned/install-launch-check-e1a4850e0c342d3e.sh
+PASS: Displays Studio KH.app 0.1.11 launched hidden and is alive after 10s (pid 78550; app.displaysstudiokh.desktop)
+  installed copy: /private/var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T/kh-launch.Olw17e/Displays Studio KH.app
+LAUNCH EXIT=0
+72258 /bin/zsh -c source $HOME/.claude/shell-snapshots/snapshot-zsh-1795335889561-4oca4b.sh 2>/dev/null || true && \builtin setopt NO_EXTENDED_GLOB NO_BARE_GLOB_QUAL NO_BRACE_CCL NO_MAGIC_EQUAL_SUBST NO_EQUALS 2>/dev/null || true && { \builtin unalias -- 'which'; \builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'T=$(mktemp -d /tmp/p11.XXXX); cd "$T" && for u in "displays-studio-kh/releases/download/0.1.10/bc531508d48d-Displays.Studio.KH-0.1.10.dmg" "relay-studio-kh/releases/download/0.3.38/96af6233602d-Relay.Studio.KH_0.3.38_aarch64.dmg" "music-studio-kh/releases/download/music-studio-0.3.19/20f07446cf03-Music.Studio.KH-0.3.19.dmg" "file-studio-kh/releases/download/0.6.4/File.Studio.KH-0.6.4-arm64.dmg"; do n=$(basename "$u"); curl -fsSL -o "$n" "https://github.com/theng12/$u" && echo "$(shasum -a 256 "$n" | cut -c1-16) $(stat -f %z "$n") $n" || echo "FAILED $n"; done' < /dev/null && pwd -P >| /tmp/claude-ebe0-cwd
+79178 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:14:53Z ===
+=== 2026-11-23T15:15:28Z row 1 again, hold route ANSWERS 200 ===
+KHHoldTokenFile = ~/Library/KHUpdater/state/hold-token | KHHoldURL = http://127.0.0.1:18653/api/maintenance/hold
+/tmp/dskh-row1-answering.sh: line 45: 97087 Terminated: 15          "$T/app/Contents/MacOS/displays-studio-kh" > "$T/app.log" 2>&1
+hold request seen:
+REQ POST /api/maintenance/hold
+  Authorization: Bearer <token, redacted>
+  Content-Length: 0
+app log (khsparkle / sparkle / check lines):
+2026-11-23 22:15:54.911 displays-studio-kh[97087:23312261] [khsparkle] refused: hold answered 200 without safe:true
+1269 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:16:23Z ===
+=== 2026-11-23T15:16:38Z row 1 again, hold route ANSWERS 200 ===
+KHHoldTokenFile = ~/Library/KHUpdater/state/hold-token | KHHoldURL = http://127.0.0.1:18653/api/maintenance/hold
+/tmp/dskh-row1-answering.sh: line 45:  8927 Terminated: 15          "$T/app/Contents/MacOS/displays-studio-kh" > "$T/app.log" 2>&1
+hold request seen:
+REQ POST /api/maintenance/hold
+  Authorization: Bearer <token, redacted>
+  Content-Length: 0
+app log (khsparkle / sparkle / check lines):
+2026-11-23 22:17:00.879 displays-studio-kh[8927:23351340] [khsparkle] hold taken; starting Sparkle
+12915 /Applications/Displays Studio KH.app/Contents/MacOS/displays-studio-kh
+=== done 2026-11-23T15:17:29Z ===
