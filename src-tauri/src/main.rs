@@ -56,6 +56,16 @@ fn keys() -> [Shortcut; 2] {
 #[derive(Default)]
 struct Keys(Mutex<brightness_keys::Status>);
 
+/// True inside the headless check, which must never put a macOS permission dialog on screen.
+#[cfg(feature = "webview-check")]
+fn hidden_check(app: &AppHandle) -> bool {
+    app.state::<Check>().0.is_some()
+}
+#[cfg(not(feature = "webview-check"))]
+fn hidden_check(_: &AppHandle) -> bool {
+    false
+}
+
 fn pref_file(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     #[cfg(feature = "webview-check")]
     if let Some(test) = app.state::<Check>().0.as_ref() {
@@ -124,6 +134,9 @@ fn set_login(app: AppHandle, enabled: bool) -> login::Status {
 
 #[tauri::command]
 fn set_brightness_keys(app: AppHandle, enabled: bool) -> brightness_keys::Status {
+    if enabled && !brightness_keys::accessibility_trusted() && !hidden_check(&app) {
+        brightness_keys::request_accessibility();
+    }
     let mut status = brightness_keys::apply(&app, enabled);
     if status.error.is_none() {
         if let Err(e) = save_pref(&app, "brightness-keys", enabled) {
@@ -282,8 +295,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if pref_on(app.handle(), "launch-at-login") {
             let _ = login::apply(true);
         }
-        *app.state::<Keys>().0.lock().unwrap() =
-            brightness_keys::apply(app.handle(), pref_on(app.handle(), "brightness-keys"));
+        let keys_on = pref_on(app.handle(), "brightness-keys");
+        *app.state::<Keys>().0.lock().unwrap() = brightness_keys::apply(app.handle(), keys_on);
+        // macOS lists an app in Accessibility only after it has asked. Ask once, on the first real
+        // launch, when the keys are on and not yet trusted; the panel keeps the way back afterwards.
+        let asked = pref_file(app.handle(), "accessibility-prompted").is_ok_and(|path| path.exists());
+        if keys_on && !asked && !brightness_keys::accessibility_trusted() {
+            let _ = save_pref(app.handle(), "accessibility-prompted", true);
+            brightness_keys::request_accessibility();
+        }
         let show = MenuItem::with_id(app, "show", "Show Displays", true, None::<&str>)?;
         let quit = MenuItem::with_id(app, "quit", "Quit Displays Studio KH", true, Some("Cmd+Q"))?;
         let separator = PredefinedMenuItem::separator(app)?;

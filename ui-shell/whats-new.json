@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.7",
+    "date": "2026-11-23",
+    "items": [
+      "The app asks for the Accessibility permission it needs, instead of leaving the brightness keys doing nothing.",
+      "The panel drops from the menu-bar icon like a menu, with everything visible and no scrolling."
+    ]
+  },
+  {
     "version": "0.1.6",
     "date": "2026-11-23",
     "items": [

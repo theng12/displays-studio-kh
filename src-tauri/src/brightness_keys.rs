@@ -42,12 +42,23 @@ extern "C" {
     fn CFRunLoopAddSource(run_loop: *mut c_void, source: *mut c_void, mode: *const c_void);
     fn CFRunLoopRemoveSource(run_loop: *mut c_void, source: *mut c_void, mode: *const c_void);
     fn CFRelease(object: *const c_void);
+    fn CFDictionaryCreate(
+        allocator: *mut c_void,
+        keys: *const *const c_void,
+        values: *const *const c_void,
+        count: i64,
+        key_callbacks: *const c_void,
+        value_callbacks: *const c_void,
+    ) -> *mut c_void;
     static kCFRunLoopCommonModes: *const c_void;
+    static kCFBooleanTrue: *const c_void;
 }
 
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
     fn AXIsProcessTrusted() -> u8;
+    fn AXIsProcessTrustedWithOptions(options: *const c_void) -> u8;
+    static kAXTrustedCheckOptionPrompt: *const c_void;
 }
 
 struct Tap {
@@ -75,6 +86,36 @@ fn brightness_key(code: i64) -> Option<bool> {
 /// True when this app may post and filter key events.
 pub fn accessibility_trusted() -> bool {
     unsafe { AXIsProcessTrusted() != 0 }
+}
+
+/// `{kAXTrustedCheckOptionPrompt: true}` — the option that makes macOS show its own grant dialog.
+fn prompt_options() -> *mut c_void {
+    unsafe {
+        let keys = [kAXTrustedCheckOptionPrompt];
+        let values = [kCFBooleanTrue];
+        CFDictionaryCreate(
+            std::ptr::null_mut(),
+            keys.as_ptr(),
+            values.as_ptr(),
+            1,
+            std::ptr::null(),
+            std::ptr::null(),
+        )
+    }
+}
+
+/// Ask macOS for Accessibility. The system shows its own dialog and the answer is given in
+/// System Settings, so this returns what is true now, never what was requested.
+pub fn request_accessibility() -> bool {
+    unsafe {
+        let options = prompt_options();
+        if options.is_null() {
+            return accessibility_trusted();
+        }
+        let trusted = AXIsProcessTrustedWithOptions(options) != 0;
+        CFRelease(options);
+        trusted
+    }
 }
 
 /// Start or stop the tap. Returns what is true afterwards, never what was asked for.
@@ -162,7 +203,16 @@ pub fn open_settings() {
 
 #[cfg(test)]
 mod tests {
-    use super::brightness_key;
+    use super::{brightness_key, prompt_options};
+
+    #[test]
+    fn the_prompt_options_build_and_release() {
+        // Only the dictionary: passing it to AXIsProcessTrustedWithOptions here would put a system
+        // dialog on the owner's screen during a test run.
+        let options = prompt_options();
+        assert!(!options.is_null(), "the Accessibility prompt option must build");
+        unsafe { super::CFRelease(options) };
+    }
 
     #[test]
     fn brightness_up_key_is_brighter() {

@@ -1,5 +1,10 @@
 # What's New
 
+## 0.1.7 — 2026-11-23
+
+- The app now asks macOS for the Accessibility permission the brightness keys need, instead of waiting to be told: on the first launch with the keys on, and whenever the switch is turned on without it. If it is still not allowed, the panel says so and its button opens the right System Settings pane.
+- The panel fixes first shipped in 0.1.4 reach you with this version: it drops from the menu-bar icon like a menu instead of opening as a window, it is sized so nothing needs scrolling, and the permission note sits at the top with its button.
+
 ## 0.1.6 — 2026-11-23
 
 - Same code as 0.1.5. Republished so the feed's current and previous are both scan-clean, which lets the release page carry current + previous again.
