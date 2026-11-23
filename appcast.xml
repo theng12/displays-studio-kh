@@ -5,16 +5,10 @@
     <link>https://theng12.github.io/displays-studio-kh/appcast.xml</link>
     <description>Displays Studio KH updates</description>
     <language>en</language>
-    <item>
-      <title>0.1.8</title>
-      <pubDate>Mon, 23 Nov 2026 04:00:26 -0800</pubDate>
-      <sparkle:version>0.1.8</sparkle:version>
-      <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/theng12/displays-studio-kh/releases/download/0.1.8/bc31f3287143-Displays.Studio.KH-0.1.8.dmg"
-                 length="4662111"
-                 type="application/octet-stream"
-                 sparkle:edSignature="OIQzJ29a3icKhg/grSFiu29tcBvr9eDikBjkz2Kw1jSSuOjS0FsKoXkAfaaHGWbDYhv10w00+AkNkKFKM6nqAA=="/>
-    </item>
+    <!-- 0.1.8 was withdrawn 2026-11-23: the build crashes at launch (dyld refuses the embedded
+         Sparkle.framework — both sides signed without a Team ID under the hardened runtime). No item
+         until 0.1.9 has passed an install-and-launch test, so an app checking here answers "no update",
+         which is the correct answer. A withdrawn version is never re-signed or re-offered. -->
+
   </channel>
 </rss>

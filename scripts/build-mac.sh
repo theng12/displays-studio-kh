@@ -106,7 +106,8 @@ codesign --force --sign "$ID" --timestamp=none --options runtime "$FW" \
   || fail "could not sign the Sparkle framework"
 codesign --force --sign "$ID" --timestamp=none --options runtime "$app/Contents/MacOS/displays-studio-kh" \
   || fail "could not sign the binary"
-codesign --force --sign "$ID" --timestamp=none --options runtime "$app" || fail "could not sign the app"
+codesign --force --sign "$ID" --timestamp=none --options runtime \
+  --entitlements src-tauri/entitlements.plist "$app" || fail "could not sign the app"
 codesign --verify --strict "$app" || fail "the staged app failed its own signature check"
 FWCHECK="$app/Contents/Frameworks/Sparkle.framework"
 [ -d "$FWCHECK" ] || fail "the staged app carries no Sparkle.framework"
