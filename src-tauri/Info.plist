@@ -4,11 +4,17 @@
 <dict>
   <key>LSUIElement</key>
   <true/>
-  <!-- Sparkle pilot: the shim reads these from the bundle. SUPublicEDKey is added
-       when System's EdDSA public key arrives; never generated here. KHHoldURL must
+  <!-- Sparkle pilot: the shim reads these from the bundle. SUPublicEDKey is the public half of the
+       estate EdDSA key (~/.kh-sparkle/ed25519-private.key, 0600, never in a repo). KHHoldURL must
        match HOLD_PORT in src/hold.rs. -->
   <key>SUFeedURL</key>
   <string>https://theng12.github.io/displays-studio-kh/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>MZbDMtSkrE2AWm1krIhSL1rvB0bExxeusMkqHgJTu6k=</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
+  <key>KHHoldTokenFile</key>
+  <string>~/Library/KHUpdater/state/hold-token</string>
   <key>KHHoldURL</key>
   <string>http://127.0.0.1:8650/api/maintenance/hold</string>
 </dict>

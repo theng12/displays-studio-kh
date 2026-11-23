@@ -1,4 +1,38 @@
 mod brightness_keys;
+
+/// Sparkle through the shared shim: one C call, one state flag, no Tauri types in between.
+mod sparkle {
+    use std::sync::atomic::{AtomicU8, Ordering};
+
+    extern "C" {
+        fn kh_sparkle_start() -> i32;
+        fn kh_sparkle_last_error() -> *const std::ffi::c_char;
+        fn kh_sparkle_set_state_callback(cb: extern "C" fn(i32));
+    }
+
+    static STATE: AtomicU8 = AtomicU8::new(0);
+
+    extern "C" fn on_state(state: i32) {
+        STATE.store(state.clamp(0, 2) as u8, Ordering::SeqCst);
+    }
+
+    /// True while Sparkle is installing or relaunching: the app must not refuse its own quit then.
+    pub fn updating() -> bool {
+        STATE.load(Ordering::SeqCst) >= 1
+    }
+
+    /// Called once, after the menu-bar item exists. A refusal lands in the log with its reason.
+    pub fn start() {
+        unsafe {
+            kh_sparkle_set_state_callback(on_state);
+            let rc = kh_sparkle_start();
+            if rc != 0 {
+                let reason = std::ffi::CStr::from_ptr(kh_sparkle_last_error()).to_string_lossy();
+                eprintln!("kh-sparkle: refused to start ({rc}): {reason}");
+            }
+        }
+    }
+}
 mod hardware;
 mod hold;
 mod login;
@@ -339,6 +373,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     show_panel(app);
                 }
             }).build(app)?;
+        // Last: the shim wants the menu-bar item to exist, and it must not run in the hidden check
+        // (that returns above), where a refused updater would be noise on someone else's screen.
+        sparkle::start();
         Ok(())
     }).build(tauri::generate_context!())?;
 
@@ -348,7 +385,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if app.state::<Check>().0.is_some() { return; }
             show_panel(app);
         }
-        RunEvent::ExitRequested { code: None, api, .. } => api.prevent_exit(),
+        // A menu-bar app stays alive when its only window hides — except while Sparkle is installing
+        // or relaunching, which needs the process to exit.
+        RunEvent::ExitRequested { code: None, api, .. } if !sparkle::updating() => api.prevent_exit(),
         _ => {}
     });
     Ok(())

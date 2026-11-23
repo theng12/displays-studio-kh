@@ -1,5 +1,9 @@
 # What's New
 
+## 0.1.8 — 2026-11-23
+
+- The app can now update itself: it checks its own signed feed, takes the update quiet point before downloading, and installs without a window or a prompt. This is the Sparkle pilot's baseline build — installing it by hand is the last time an update is installed by hand.
+
 ## 0.1.7 — 2026-11-23
 
 - The app now asks macOS for the Accessibility permission the brightness keys need, instead of waiting to be told: on the first launch with the keys on, and whenever the switch is turned on without it. If it is still not allowed, the panel says so and its button opens the right System Settings pane.

@@ -20,6 +20,8 @@ done
 command -v cargo >/dev/null || fail "Rust (cargo) is missing."
 command -v python3 >/dev/null || fail "Python 3 is missing."
 command -v hdiutil >/dev/null || fail "hdiutil is missing."
+[ -d src-tauri/vendor/khsparkle/Sparkle.framework ] || fail "the vendored Sparkle.framework is missing"
+[ -f src-tauri/vendor/khsparkle/libkhsparkle.a ] || fail "the vendored libkhsparkle.a is missing"
 
 # The app bundle is staged here rather than by the Tauri CLI: this repo has no npm project, and the
 # CLI that used to come from another checkout's node_modules is gone. The layout below is the one
@@ -87,11 +89,29 @@ plist.update(plistlib.load(open(sys.argv[3], "rb")))
 with open(sys.argv[1], "wb") as stream:
     plistlib.dump(plist, stream)
 PY
-# The embedded frontend lives in the binary (custom-protocol), so the bundle needs nothing else.
-codesign --force --sign "KH Studio Local Signing" "$app/Contents/MacOS/displays-studio-kh" \
+# The embedded frontend lives in the binary (custom-protocol); the one thing beside it is Sparkle.
+mkdir -p "$app/Contents/Frameworks"
+cp -R src-tauri/vendor/khsparkle/Sparkle.framework "$app/Contents/Frameworks/" \
+  || fail "could not copy the vendored Sparkle.framework into Contents/Frameworks"
+# Nested code first, the app last (INTEGRATION.md §3A). A nested binary signed after the app is what
+# breaks `codesign --verify --deep --strict` — which is a pilot assertion.
+ID="KH Studio Local Signing"
+FW="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+for nested in "$FW/XPCServices/Downloader.xpc" "$FW/XPCServices/Installer.xpc" "$FW/Updater.app" "$FW/Autoupdate"; do
+  [ -e "$nested" ] || fail "the vendored Sparkle framework has no $(basename "$nested")"
+  codesign --force --sign "$ID" --timestamp=none --options runtime "$nested" \
+    || fail "could not sign $(basename "$nested")"
+done
+codesign --force --sign "$ID" --timestamp=none --options runtime "$FW" \
+  || fail "could not sign the Sparkle framework"
+codesign --force --sign "$ID" --timestamp=none --options runtime "$app/Contents/MacOS/displays-studio-kh" \
   || fail "could not sign the binary"
-codesign --force --sign "KH Studio Local Signing" "$app" || fail "could not sign the app"
+codesign --force --sign "$ID" --timestamp=none --options runtime "$app" || fail "could not sign the app"
 codesign --verify --strict "$app" || fail "the staged app failed its own signature check"
+FWCHECK="$app/Contents/Frameworks/Sparkle.framework"
+[ -d "$FWCHECK" ] || fail "the staged app carries no Sparkle.framework"
+otool -l "$app/Contents/MacOS/displays-studio-kh" | grep -q '@executable_path/../Frameworks' \
+  || fail "the binary carries no @executable_path/../Frameworks rpath"
 
 step "Packaging the DMG"
 vol="Displays Studio KH $version"

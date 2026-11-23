@@ -10,12 +10,15 @@ import time
 from pathlib import Path
 
 binary = Path(sys.argv[1]).resolve(strict=True)
+# The test binary is not inside a bundle, so its @executable_path/../Frameworks rpath has nothing
+# beside it; point dyld at the vendored framework instead of copying it around on every build.
+vendor = Path(__file__).resolve().parent.parent / "src-tauri" / "vendor" / "khsparkle"
 data = tempfile.mkdtemp(prefix="displays-studio-kh-")
 print(f"Isolated test dir: {data}", flush=True)
 with subprocess.Popen(
     [str(binary), "--webview-check", data],
     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-    start_new_session=True,
+    start_new_session=True, env={**os.environ, "DYLD_FRAMEWORK_PATH": str(vendor)},
 ) as app:
     try:
         deadline = time.monotonic() + 35

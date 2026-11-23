@@ -3,7 +3,7 @@
 # work genuinely in flight: a hidden instance on its own temp profile, a real display refresh
 # slowed by the test hook, the hold taken while it runs, a bounded settle, an honest unsafe answer,
 # DELETE and expiry resume, a restart that starts open, and the route's refusals.
-# No window, no desktop input, its own port (the live app keeps 8649).
+# No window, no desktop input, its own port (the live app keeps 8650).
 #
 #   bash tests/hold.sh [path/to/displays-studio-kh]
 #   (binary: cargo build --features custom-protocol,webview-check)
@@ -12,6 +12,8 @@ cd "$(dirname "$0")/.."
 
 BIN="${1:-src-tauri/target/debug/displays-studio-kh}"
 [ -x "$BIN" ] || { echo "no executable at $BIN"; exit 2; }
+# Not in a bundle, so @executable_path/../Frameworks finds nothing: dyld reads the vendored framework.
+export DYLD_FRAMEWORK_PATH="$PWD/src-tauri/vendor/khsparkle"
 pass() { printf 'PASS  %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1" >&2; exit 1; }
 

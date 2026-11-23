@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.8",
+    "date": "2026-11-23",
+    "items": [
+      "The app can update itself: it checks its own signed feed, asks the app for a quiet moment first, and installs without a window or a prompt.",
+      "This build is the update pilot's baseline — installing it is the last hand install."
+    ]
+  },
+  {
     "version": "0.1.7",
     "date": "2026-11-23",
     "items": [
