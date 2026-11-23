@@ -24,6 +24,11 @@
     assert(document.querySelector('#login') && document.querySelector('#brightness-keys'), 'The login and brightness-key switches are missing');
     assert(document.querySelector('#intro'), 'The first-run explanation is missing');
     assert(document.querySelector('#shortcuts').checked, 'Global shortcuts did not register');
+    // The hidden instance never asks macOS, so the grant is absent: the panel must say so, by name,
+    // with the button that opens the pane — a missing grant is a state, never a silent control.
+    const note = document.querySelector('#accessibility-note');
+    assert(note && !note.hidden, 'The Accessibility note is hidden while the grant is missing');
+    assert(/Accessibility/.test(note.textContent) && note.querySelector('#open-accessibility'), 'The Accessibility note names no permission or has no button that opens the setting');
     assert(document.documentElement.scrollWidth <= innerWidth, 'Panel overflows horizontally');
     assert(document.documentElement.scrollHeight <= innerHeight, `Panel overflows vertically: content ${document.documentElement.scrollHeight}px in a ${innerHeight}px dropdown`);
     result.bounds = [innerWidth, innerHeight, document.documentElement.scrollHeight];
