@@ -120,6 +120,30 @@ the test lane against the debug build with a test port:
   earlier passing commit; the artifact of record was built from `764bc5c`, which differs only by
   `scripts/idle-launch.sh` and the gate config (no app source). Retagging to `764bc5c` before the
   release is a decision for whoever publishes.
+- **The tag stays at `954e0bc` (decision by U001, 2026-11-24).** `refs/tags/0.1.13` exists on the
+  remote and points one commit behind the artifact's build commit (`764bc5c`). Moving a tag already
+  on the public remote is rewriting published history, and that rule is stronger than the gain. The
+  deviation is asserted here instead:
+
+  ```
+  $ git diff --stat 954e0bc..764bc5c
+   docs/receipts/0.1.13/GATE-PASS.txt    |   1 +
+   docs/receipts/0.1.13/RECEIPT.md       | 109 ++++++++++++++
+   docs/receipts/0.1.13/gate-summary.txt |  61 ++++++++++++
+   docs/screenshots/settings-light.png   | Bin 170472 -> 170470 bytes
+   scripts/idle-launch.sh                |  16 +++++
+   5 files changed, 187 insertions(+)
+  ```
+
+  **No app source changes** — nothing under `src-tauri/` or `ui-shell/` — so the shipped binary is
+  the same code and the tag marks the release honestly. The gate config also changed, but it lives
+  outside the repository (`lead/gate-0.1.13.conf`), so it cannot appear in the diff.
+- **Tag `0.1.12`: the remote's `3dd61db` is authoritative.** It is what anyone else sees; the local
+  `067a2e1` is a local artefact, not a second truth. Both are named; neither was moved or deleted.
+- **Own hold token — the drift decision (U001, 2026-11-24):** the app **copies once and never
+  refreshes** (§2d), and the **publisher reads each app's `KHHoldTokenFile` from that app's
+  Info.plist** rather than a shared path. The publisher-side change belongs to Release Tooling; this
+  app adds no refresh.
 - **Tag 0.1.12 differs between this checkout and the remote:** locally `067a2e1` (the appcast item),
   remotely `3dd61db` (a receipt commit). Neither was moved by me; recorded so nobody reads one as the
   other.
