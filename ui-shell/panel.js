@@ -3,9 +3,6 @@ const { listen } = window.__TAURI__.event;
 const $ = (selector) => document.querySelector(selector);
 const list = $('#displays');
 const refreshButton = $('#refresh');
-const shortcut = $('#shortcuts');
-const login = $('#login');
-const keys = $('#brightness-keys');
 const intro = $('#intro');
 const accessNote = $('#accessibility-note');
 const news = $('#news');
@@ -198,49 +195,8 @@ $('#intro-dismiss').addEventListener('click', () => {
   intro.hidden = true;
   try { localStorage.setItem('displays-intro-seen', '1'); } catch { /* nothing to remember */ }
 });
-shortcut.addEventListener('change', async () => {
-  const requested = shortcut.checked;
-  shortcut.disabled = true;
-  try {
-    const setting = await invoke('set_shortcuts', { enabled: requested });
-    shortcut.checked = setting.enabled;
-    status(setting.error || `Brightness shortcuts ${setting.enabled ? 'on' : 'off'}.`, Boolean(setting.error));
-  } catch (error) {
-    shortcut.checked = !requested;
-    status(String(error), true);
-  } finally {
-    shortcut.disabled = false;
-  }
-});
-login.addEventListener('change', async () => {
-  const requested = login.checked;
-  login.disabled = true;
-  try {
-    const setting = await invoke('set_login', { enabled: requested });
-    login.checked = setting.enabled;
-    status(setting.error || `Start at login ${setting.enabled ? 'on' : 'off'}.`, Boolean(setting.error));
-  } catch (error) {
-    login.checked = !requested;
-    status(String(error), true);
-  } finally {
-    login.disabled = false;
-  }
-});
-keys.addEventListener('change', async () => {
-  const requested = keys.checked;
-  keys.disabled = true;
-  try {
-    const setting = await invoke('set_brightness_keys', { enabled: requested });
-    keys.checked = setting.enabled;
-    keysTrusted = setting.trusted;
-    updateAccessNote();
-    status(setting.error || `Brightness keys ${setting.enabled ? 'on' : 'off'}.`, Boolean(setting.error));
-  } catch (error) {
-    keys.checked = !requested;
-    status(String(error), true);
-  } finally {
-    keys.disabled = false;
-  }
+$('#settings-open').addEventListener('click', () => {
+  invoke('open_settings_window').catch((error) => status(String(error), true));
 });
 $('#open-accessibility').addEventListener('click', () => {
   invoke('open_accessibility_settings').catch((error) => status(String(error), true));
@@ -322,14 +278,8 @@ async function initialise() {
     });
     // An update hold says it is happening: held → paused → resumed, in the panel's status line.
     await listen('update-hold', ({ payload }) => status(payload));
-    const [version, shortcutsInfo, loginInfo, keysInfo, releaseNotes] = await invoke('panel_info');
-    shortcut.checked = shortcutsInfo.enabled;
-    shortcut.disabled = false;
-    login.checked = loginInfo.enabled;
-    login.disabled = false;
-    keys.checked = keysInfo.enabled;
+    const [version, shortcutsInfo, , keysInfo, releaseNotes] = await invoke('panel_info');
     keysTrusted = keysInfo.trusted;
-    keys.disabled = false;
     updateAccessNote();
     $('#version').textContent = `Displays Studio KH · v${version}`;
     $('#news-version').textContent = `v${version}`;
@@ -338,7 +288,7 @@ async function initialise() {
     const notes = JSON.parse(releaseNotes).find((item) => item.version === version)?.items;
     if (!notes?.length) throw new Error(`Release notes are missing for v${version}.`);
     $('#notes').replaceChildren(...notes.map((item) => element('li', item)));
-    const errors = [shortcutsInfo.error, loginInfo.error, keysInfo.error].filter(Boolean);
+    const errors = [shortcutsInfo.error, keysInfo.error].filter(Boolean);
     if (errors.length) status(errors.join(' '), true);
   } catch (error) {
     status(String(error), true);

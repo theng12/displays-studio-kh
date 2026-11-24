@@ -1,5 +1,12 @@
 # What's New
 
+## 0.1.13 — 2026-11-24
+
+- Settings now has a real screen of its own: the gear in the panel, or Settings… in the menu-bar menu. The three switches that used to sit in the panel moved here, with the choices that belong beside them.
+- Each external display can carry its own brighter and dimmer shortcut, recorded by pressing the keys you want. A chord belongs to one display and one direction, so two displays can never answer the same press.
+- The brightness keys — the Mac's F1/F2 and the global pair — can move every external display, as before, or only the display you select here.
+- If macOS has not granted Accessibility, the brightness-keys setting says so in plain words and opens the Accessibility pane in one click.
+
 ## 0.1.12 — 2026-11-23
 
 - Saved presets. Name the settings your monitors report right now — Evening, Day, whatever fits — and put them back with one click. A preset remembers only what a monitor actually reported, writes only to the display it was saved from, and says so in plain words when a display is no longer connected instead of changing a different one.

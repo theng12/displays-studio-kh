@@ -35,6 +35,7 @@ mod sparkle {
 }
 mod hardware;
 mod hold;
+mod hotkeys;
 mod login;
 mod presets;
 
@@ -172,13 +173,61 @@ fn save_pref(app: &AppHandle, name: &str, on: bool) -> Result<(), String> {
     })
 }
 
+fn hotkeys_path(app: &AppHandle) -> Result<PathBuf, String> {
+    pref_file(app, "hotkeys.json")
+}
+
+/// A text preference; `fallback` when the file is absent, which is how a default stays a default.
+fn pref_text(app: &AppHandle, name: &str, fallback: &str) -> String {
+    pref_file(app, name).ok().and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|text| text.trim().to_string()).filter(|text| !text.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn save_text(app: &AppHandle, name: &str, value: &str) -> Result<(), String> {
+    pref_file(app, name).and_then(|path| {
+        std::fs::create_dir_all(path.parent().expect("preference directory"))
+            .and_then(|()| std::fs::write(path, value))
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// "all" (every external display) or "selected" (only the one chosen in Settings).
+fn keys_follow(app: &AppHandle) -> String {
+    pref_text(app, "keys-follow", "all")
+}
+
+/// The displays the global keys and F1/F2 move: every one, or the selected one.
+pub(crate) fn step_follow(app: &AppHandle, brighter: bool) -> Result<hardware::Step, String> {
+    let selected = pref_text(app, "selected-display", "");
+    if keys_follow(app) == "selected" && !selected.is_empty() {
+        return hardware::step_on(&selected, brighter);
+    }
+    hardware::step(brighter)
+}
+
+/// Registers the global pair (when it is on) and every per-display chord. One registration point, so
+/// changing one setting cannot leave another's shortcut silently unregistered.
 fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
     let manager = app.global_shortcut();
-    let error = manager.unregister_all().and_then(|()| {
-        if enabled { manager.register_multiple(keys()) } else { Ok(()) }
-    }).err().map(|e| {
+    let chords = hotkeys::load(&hotkeys_path(app).unwrap_or_default());
+    let attempt = (|| -> Result<(), String> {
+        manager.unregister_all().map_err(|e| e.to_string())?;
+        if enabled {
+            manager.register_multiple(keys()).map_err(|e| e.to_string())?;
+        }
+        for hotkey in &chords {
+            let chord = hotkeys::clean_chord(&hotkey.chord)?;
+            let shortcut = <Shortcut as std::str::FromStr>::from_str(&chord)
+                .map_err(|_| format!("{} is not a shortcut macOS accepts", hotkey.chord))?;
+            manager.register(shortcut)
+                .map_err(|e| format!("{} belongs to another app or macOS ({e})", hotkey.chord))?;
+        }
+        Ok(())
+    })();
+    let error = attempt.err().map(|e| {
         let _ = manager.unregister_all();
-        format!("Couldn't change the brightness shortcuts: {e}")
+        format!("Couldn't register every shortcut: {e}.")
     });
     ShortcutStatus { enabled: enabled && error.is_none(), error }
 }
@@ -240,6 +289,110 @@ fn open_accessibility_settings() {
 #[tauri::command]
 async fn set_all(app: AppHandle, code: u8, percent: u16) -> Result<hardware::All, String> {
     ddc(&app, "Changing all displays", move || hardware::set_all(code, percent)).await
+}
+
+#[derive(serde::Serialize)]
+struct SettingsInfo {
+    version: String,
+    shortcuts: ShortcutStatus,
+    keys: brightness_keys::Status,
+    login: login::Status,
+    follow: String,
+    selected: String,
+    hotkeys: Vec<hotkeys::Hotkey>,
+}
+
+#[tauri::command]
+fn settings_info(app: AppHandle) -> SettingsInfo {
+    SettingsInfo {
+        version: app.package_info().version.to_string(),
+        shortcuts: app.state::<Shortcuts>().0.lock().unwrap().clone(),
+        keys: app.state::<Keys>().0.lock().unwrap().clone(),
+        login: login::Status { enabled: login::enabled(), error: None },
+        follow: keys_follow(&app),
+        selected: pref_text(&app, "selected-display", ""),
+        hotkeys: hotkeys::load(&hotkeys_path(&app).unwrap_or_default()),
+    }
+}
+
+/// Every registered shortcut is rebuilt from the saved list, so a change here cannot leave another
+/// chord silently unregistered.
+fn re_register(app: &AppHandle) {
+    let status = register_shortcuts(app, pref_on(app, "brightness-shortcuts"));
+    *app.state::<Shortcuts>().0.lock().unwrap() = status;
+}
+
+#[tauri::command]
+fn set_keys_follow(app: AppHandle, follow: String, display: String) -> Result<SettingsInfo, String> {
+    if follow != "all" && follow != "selected" {
+        return Err("Choose whether the keys move every display or the selected one.".into());
+    }
+    save_text(&app, "keys-follow", &follow)?;
+    save_text(&app, "selected-display", display.trim())?;
+    Ok(settings_info(app))
+}
+
+#[tauri::command]
+fn set_hotkey(app: AppHandle, display: String, brighter: bool, chord: String) -> Result<SettingsInfo, String> {
+    let chord = hotkeys::clean_chord(&chord)?;
+    let path = hotkeys_path(&app)?;
+    let mut list = hotkeys::load(&path);
+    hotkeys::upsert(&mut list, hotkeys::Hotkey { display, brighter, chord });
+    hotkeys::save(&path, &list)?;
+    re_register(&app);
+    let info = settings_info(app.clone());
+    if let Some(error) = info.shortcuts.error.clone() { return Err(error); }
+    Ok(info)
+}
+
+#[tauri::command]
+fn clear_hotkey(app: AppHandle, display: String, brighter: bool) -> Result<SettingsInfo, String> {
+    let path = hotkeys_path(&app)?;
+    let mut list = hotkeys::load(&path);
+    hotkeys::remove(&mut list, &display, brighter);
+    hotkeys::save(&path, &list)?;
+    re_register(&app);
+    Ok(settings_info(app))
+}
+
+#[tauri::command]
+fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    show_settings(&app);
+    Ok(())
+}
+
+fn show_settings(app: &AppHandle) {
+    // A menu-bar app has no Dock icon, so a real window must take the app out of accessory mode or it
+    // opens behind everything; the close handler puts it back.
+    let _ = app.set_activation_policy(ActivationPolicy::Regular);
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show().and_then(|()| window.set_focus());
+        return;
+    }
+    let handle = app.clone();
+    let build = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .title("Displays Studio KH Settings")
+        .inner_size(560.0, 640.0)
+        .resizable(false).minimizable(false).maximizable(false)
+        .center()
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
+    let window = match build.build() {
+        Ok(window) => window,
+        Err(e) => {
+            eprintln!("Couldn't open Settings: {e}");
+            let _ = handle.set_activation_policy(ActivationPolicy::Accessory);
+            return;
+        }
+    };
+    if let Err(e) = window.set_focus() {
+        eprintln!("Couldn't focus Settings: {e}");
+    }
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Destroyed = event {
+            let _ = handle.set_activation_policy(ActivationPolicy::Accessory);
+        }
+    });
 }
 
 #[tauri::command]
@@ -346,9 +499,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state != ShortcutState::Pressed { return; }
             let app = app.clone();
-            let brighter = shortcut.id() == keys()[0].id();
+            let id = shortcut.id();
             tauri::async_runtime::spawn(async move {
-                let outcome = ddc(&app, "Brightness keys", move || hardware::step(brighter)).await;
+                // A per-display chord moves only its display; the global pair follows the Settings
+                // choice — every display, or the selected one.
+                let own = hotkeys::load(&hotkeys_path(&app).unwrap_or_default()).into_iter()
+                    .find(|h| std::str::FromStr::from_str(&h.chord).map(|s: Shortcut| s.id()).ok() == Some(id));
+                let outcome = match own {
+                    Some(hotkey) => {
+                        let (display, brighter) = (hotkey.display.clone(), hotkey.brighter);
+                        ddc(&app, "Brightness hotkey", move || hardware::step_on(&display, brighter)).await
+                    }
+                    None => {
+                        let brighter = id == keys()[0].id();
+                        let handle = app.clone();
+                        ddc(&app, "Brightness keys", move || step_follow(&handle, brighter)).await
+                    }
+                };
                 if let Some(tray) = app.tray_by_id("displays") {
                     let message = match &outcome { Ok(step) => step.message(), Err(reason) => reason };
                     let _ = tray.set_tooltip(Some(message));
@@ -357,9 +524,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }).build());
     #[cfg(not(feature = "webview-check"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete]);
+    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window]);
     #[cfg(feature = "webview-check")]
-    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, check_result]);
+    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, check_result]);
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
@@ -390,14 +557,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             brightness_keys::request_accessibility();
         }
         let show = MenuItem::with_id(app, "show", "Show Displays", true, None::<&str>)?;
+        let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("Cmd+,"))?;
         let quit = MenuItem::with_id(app, "quit", "Quit Displays Studio KH", true, Some("Cmd+Q"))?;
         let separator = PredefinedMenuItem::separator(app)?;
-        let menu = Menu::with_items(app, &[&show, &separator, &quit])?;
+        let menu = Menu::with_items(app, &[&show, &settings, &separator, &quit])?;
         TrayIconBuilder::with_id("displays")
             .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
             .icon_as_template(true).tooltip("Displays Studio KH").menu(&menu).show_menu_on_left_click(false)
             .on_menu_event(|app, event| match event.id.as_ref() {
                 "show" => show_panel(app),
+                "settings" => show_settings(app),
                 "quit" => app.exit(0),
                 _ => {}
             })

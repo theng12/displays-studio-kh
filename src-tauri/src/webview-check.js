@@ -21,7 +21,17 @@
     result.settings = range.filter((node) => node.id !== 'all-displays').map((node) => [node.getAttribute('aria-label'), node.valueAsNumber]);
     assert(result.displays.includes('MSI MP273') && [16, 18, 98].every((code) => range.some((node) => Number(node.dataset.code) === code)), 'Expected MSI hardware controls are missing');
     assert(document.querySelector('#all-displays'), 'The all-displays slider is missing');
-    assert(document.querySelector('#login') && document.querySelector('#brightness-keys'), 'The login and brightness-key switches are missing');
+    // The switches moved to the Settings window; the panel keeps one way in, and the settings commands
+    // answer with the real state.
+    assert(document.querySelector('#settings-open'), 'The Settings button is missing from the panel');
+    const settingsInfo = await invoke('settings_info');
+    assert(['all', 'selected'].includes(settingsInfo.follow) && Array.isArray(settingsInfo.hotkeys),
+      'settings_info did not return the keys-follow choice and the hotkey list');
+    const followed = await invoke('set_keys_follow', { follow: 'selected', display: 'demo-display' });
+    assert(followed.follow === 'selected' && followed.selected === 'demo-display', 'The keys-follow choice did not stick');
+    const back = await invoke('set_keys_follow', { follow: 'all', display: '' });
+    assert(back.follow === 'all', 'The keys-follow choice did not go back');
+    result.settings_screen = { follow: settingsInfo.follow, hotkeys: settingsInfo.hotkeys.length };
     assert(document.querySelector('#intro'), 'The first-run explanation is missing');
     // Saved presets: the controls exist, and the backend really remembers and forgets a name
     // (read-only on the hardware — saving captures what the monitors report).
@@ -39,9 +49,15 @@
     } catch (error) {
       const message = String(error?.message ?? error);
       assert(/update|hold|paused/i.test(message), `Saving a preset failed for an unexpected reason: ${message}`);
-      result.presets = `refused during the update hold: ${message}`;
+      // The person is told why, in the panel's own status line — measured by pressing the button, not
+      // by reading the handler.
+      document.querySelector('#preset-name').value = 'Hidden check';
+      document.querySelector('#preset-save').click();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const shown = document.querySelector('#status').textContent;
+      assert(/holding new work|paused|update/i.test(shown), `The panel did not explain the paused save: ${shown}`);
+      result.presets = `refused during the update hold, and the panel said: ${shown}`;
     }
-    assert(document.querySelector('#shortcuts').checked, 'Global shortcuts did not register');
     // The hidden instance never asks macOS, so the grant is absent: the panel must say so, by name,
     // with the button that opens the pane — a missing grant is a state, never a silent control.
     const note = document.querySelector('#accessibility-note');
