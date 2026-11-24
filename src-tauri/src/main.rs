@@ -554,9 +554,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snapshot_dir = if std::env::args().any(|a| a == "--snapshot") { test.clone() } else { None };
 
     #[cfg(all(feature = "webview-check", target_os = "macos"))]
-    let builder = tauri::Builder::default().manage(Snapshot(snapshot_dir));
+    let builder = tauri::Builder::default().manage(Snapshot(snapshot_dir)).manage(Bus::default());
     #[cfg(not(all(feature = "webview-check", target_os = "macos")))]
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().manage(Bus::default());
     let builder = builder.manage(Shortcuts::default()).manage(Keys::default()).manage(hold::Hold::default())
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state != ShortcutState::Pressed { return; }
