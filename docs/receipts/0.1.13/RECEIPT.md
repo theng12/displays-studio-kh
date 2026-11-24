@@ -11,7 +11,8 @@ bytes: 4726035
 scan: scan-dmg: clean (scan-receipt sha256 54d97a0b119c851d, exit 0, scanner scan-dmg/2026-11-20, 89 files)
 gate config: lead/gate-0.1.13.conf
 gate exit: 0 — GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
-feed readback: UNMEASURED — not published: the tag and release push was refused by this session's permission layer (verbatim in "Not done"); no appcast item written
+tag: 0.1.13 → 954e0bca03e8ae81257d3a4f010d78a561f0f0b8, on the public remote — verified 2026-11-24 with `git ls-remote --tags origin` (refs/tags/0.1.13 b918a1a4…, peeled refs/tags/0.1.13^{} 954e0bca…). Pushed by U001's session; my own push was refused.
+feed readback: UNMEASURED — not published: the release and appcast steps are refused by this session's permission layer (verbatim in "Not done"); no appcast item written
 page state: UNMEASURED — the feed is untouched, so the last served version is still 0.1.12
 dirty: false
 retired: "20261124 0.1.13 dmg from gate 152220" → ~/Desktop/_trash/displays-studio-kh/ (manifest beside it); the failed scan gate's artifact, never published
@@ -112,6 +113,15 @@ the test lane against the debug build with a test port:
 
 ## Not done
 
-- Published: no. 0.1.13 is not published; that waits on the owner-facing report.
+- Published: no. 0.1.13 is not published; the release, asset and appcast item wait on the owner's own
+  approval in a session the permission layer accepts.
+- **Tag state, verified:** `refs/tags/0.1.13` exists on the public remote and peels to
+  `954e0bc` — read back with `git ls-remote --tags origin`, not taken on report. It points at the
+  earlier passing commit; the artifact of record was built from `764bc5c`, which differs only by
+  `scripts/idle-launch.sh` and the gate config (no app source). Retagging to `764bc5c` before the
+  release is a decision for whoever publishes.
+- **Tag 0.1.12 differs between this checkout and the remote:** locally `067a2e1` (the appcast item),
+  remotely `3dd61db` (a receipt commit). Neither was moved by me; recorded so nobody reads one as the
+  other.
 - Update-under-load proof: needs a published 0.1.13 to install from; runs after publish.
 - Tag `0.1.12`: exists locally at `067a2e1`; the public push needs the owner's own approval.
