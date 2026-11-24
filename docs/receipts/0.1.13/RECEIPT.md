@@ -12,11 +12,11 @@ scan: scan-dmg: clean (scan-receipt sha256 54d97a0b119c851d, exit 0, scanner sca
 gate config: lead/gate-0.1.13.conf
 gate exit: 0 — GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
 tag: 0.1.13 → 954e0bca03e8ae81257d3a4f010d78a561f0f0b8, on the public remote — verified 2026-11-24 with `git ls-remote --tags origin` (refs/tags/0.1.13 b918a1a4…, peeled refs/tags/0.1.13^{} 954e0bca…). Pushed by U001's session; my own push was refused.
-feed readback: UNMEASURED — not published: the release and appcast steps are refused by this session's permission layer (verbatim in "Not done"); no appcast item written
-page state: UNMEASURED — the feed is untouched, so the last served version is still 0.1.12
+feed readback: per-app appcast https://theng12.github.io/displays-studio-kh/appcast.xml HTTP 200 (2,301 B, 3 items: 0.1.13, 0.1.12, 0.1.11; commit 3b60384), SIGNATURE OK against anonymous download of https://github.com/theng12/displays-studio-kh/releases/download/0.1.13/54d97a0b119c-Displays.Studio.KH-0.1.13.dmg (HTTP 200, 4,726,035 B, sha256 54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c); estate feed (kh-releases/release.json .apps.displays-studio) UNMEASURED for 0.1.13 (still served 0.1.12 at 2026-11-24T19:37Z, awaiting publisher pass)
+page state: appcast.xml serves 0.1.13 (SIGNATURE OK); kh-releases/release.json .apps.displays-studio still serves 0.1.12 pending publisher pass
 dirty: false
-retired: "20261124 0.1.13 dmg from gate 152220" → ~/Desktop/_trash/displays-studio-kh/ (manifest beside it); the failed scan gate's artifact, never published
-not proven: feed readback, public release, appcast item, update-under-load, install on the owner's Mac
+retired: "20261124 0.1.13 dmg from gate 152220" → ~/Desktop/_trash/displays-studio-kh/ (manifest beside it); the failed scan gate's artifact, never published; dist/ holds exact two DMGs (0.1.13 + 0.1.12)
+not proven: estate feed row (kh-releases/release.json still 0.1.12 pending publisher pass), update-under-load, install on the owner's Mac
 ```
 
 ## Identity
@@ -51,7 +51,7 @@ not proven: feed readback, public release, appcast item, update-under-load, inst
 
 ```
 GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
-runner: gate-run.sh f05b010c16e5 at /Users/vengtheng/Developer/_orchestra/tools/gate-run.sh
+runner: gate-run.sh f05b010c16e5 at $HOME/Developer/_orchestra/tools/gate-run.sh
 artifact dist/Displays Studio KH-0.1.13.dmg 4726035 bytes sha256=54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c
 ```
 
@@ -111,10 +111,14 @@ the test lane against the debug build with a test port:
   SUFeedURL` — expected: the bare test binary has no bundle Info.plist; the shipped app's plist names
   `~/Library/Application Support/Displays Studio KH/hold-token`).
 
-## Not done
+## Published & remaining
 
-- Published: no. 0.1.13 is not published; the release, asset and appcast item wait on the owner's own
-  approval in a session the permission layer accepts.
+- **Published (2026-11-24, on the owner's explicit command *"publish Displays Studio KH 0.1.13 to theng12/displays-studio-kh"*):**
+  - Release: `https://github.com/theng12/displays-studio-kh/releases/tag/0.1.13` (non-draft, `--verify-tag`, tag `0.1.13` → `954e0bc`).
+  - Anonymous download of `54d97a0b119c-Displays.Studio.KH-0.1.13.dmg`: HTTP 200, **4,726,035 B**, sha256 `54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c` — byte-identical to the gated artifact.
+  - Per-app appcast (`appcast.xml`, commit `3b60384`): item added for `0.1.13`, `0.1.10` dropped to keep three items (`0.1.13`, `0.1.12`, `0.1.11`); read back from `https://theng12.github.io/displays-studio-kh/appcast.xml` (HTTP 200, 2,301 B) with `edSignature` verified against the anonymously downloaded DMG (**SIGNATURE OK**).
+  - Local `dist/` retention: exact two DMGs (`Displays Studio KH-0.1.13.dmg` and `Displays Studio KH-0.1.12.dmg`).
+- **Estate feed row (`kh-releases/release.json`):** still served `0.1.12` at 2026-11-24T19:37Z; regeneration belongs to the publisher pass and stays `UNMEASURED` for 0.1.13 until read back.
 - **Tag state, verified:** `refs/tags/0.1.13` exists on the public remote and peels to
   `954e0bc` — read back with `git ls-remote --tags origin`, not taken on report. It points at the
   earlier passing commit; the artifact of record was built from `764bc5c`, which differs only by
