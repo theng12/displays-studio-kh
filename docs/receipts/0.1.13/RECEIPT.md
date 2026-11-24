@@ -4,18 +4,18 @@ Settings window with its own gear icon, a shortcut pair per display, one-click A
 ```
 app: displays-studio-kh
 version: 0.1.13
-commit: 954e0bca03e8ae81257d3a4f010d78a561f0f0b8
+commit: 764bc5c220976c35513d5d8db901b42b4b1e3ab5
 artifact: dist/Displays Studio KH-0.1.13.dmg
-sha256: 1482c412004e9b7f6a7ef74147c07657ac7464cc754141da5c51d1222cbe9a46
-bytes: 4725758
-scan: scan-dmg: clean (scan-receipt sha256 1482c412004e9b7f, exit 0, scanner scan-dmg/2026-11-20, 89 files)
+sha256: 54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c
+bytes: 4726035
+scan: scan-dmg: clean (scan-receipt sha256 54d97a0b119c851d, exit 0, scanner scan-dmg/2026-11-20, 89 files)
 gate config: lead/gate-0.1.13.conf
-gate exit: 0 — GATE PASS displays-studio 954e0bca03e8ae81257d3a4f010d78a561f0f0b8 2026-11-24T10:43:56Z
+gate exit: 0 — GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
 feed readback: UNMEASURED — not published: the tag and release push was refused by this session's permission layer (verbatim in "Not done"); no appcast item written
 page state: UNMEASURED — the feed is untouched, so the last served version is still 0.1.12
 dirty: false
 retired: "20261124 0.1.13 dmg from gate 152220" → ~/Desktop/_trash/displays-studio-kh/ (manifest beside it); the failed scan gate's artifact, never published
-not proven: feed readback, public release, appcast item, update-under-load, install on the owner's Mac, idle footprint (UNMEASURED: no IDLE_PID in the gate config)
+not proven: feed readback, public release, appcast item, update-under-load, install on the owner's Mac
 ```
 
 ## Identity
@@ -25,10 +25,10 @@ not proven: feed readback, public release, appcast item, update-under-load, inst
 | app / bundle id | Displays Studio KH / `app.displaysstudiokh.desktop` |
 | version | 0.1.13 |
 | artifact | `Displays Studio KH-0.1.13.dmg` |
-| sha256 | `1482c412004e9b7f6a7ef74147c07657ac7464cc754141da5c51d1222cbe9a46` |
-| bytes | 4,725,758 |
+| sha256 | `54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c` |
+| bytes | 4,726,035 |
 | signing | KH Studio Local Signing — self-signed, not notarized |
-| gated commit | `954e0bca03e8ae81257d3a4f010d78a561f0f0b8` (branch main, dirty=0 at both identity checks) |
+| gated commit | `764bc5c220976c35513d5d8db901b42b4b1e3ab5` (branch main, dirty=0 at both identity checks) |
 | runner | `gate-run.sh f05b010c16e5` — SHA-256 `f05b010c16e577986c796341a43b41b450e4639b82159f664c15b7b89d06bd5a`, 43,672 B |
 
 ## What it does
@@ -49,19 +49,27 @@ not proven: feed readback, public release, appcast item, update-under-load, inst
 ## Gate
 
 ```
-GATE PASS displays-studio 954e0bca03e8ae81257d3a4f010d78a561f0f0b8 2026-11-24T10:43:56Z
+GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
 runner: gate-run.sh f05b010c16e5 at /Users/vengtheng/Developer/_orchestra/tools/gate-run.sh
-artifact dist/Displays Studio KH-0.1.13.dmg 4725758 bytes sha256=1482c412004e9b7f6a7ef74147c07657ac7464cc754141da5c51d1222cbe9a46
+artifact dist/Displays Studio KH-0.1.13.dmg 4726035 bytes sha256=54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c
 ```
 
-Evidence: `lead/gate-20261124-174254-3606` (copied here as `gate-summary.txt` and `GATE-PASS.txt`).
+Evidence: `lead/gate-20261124-182218-51430` (copied here as `gate-summary.txt` and `GATE-PASS.txt`).
 The runner was `f05b010c16e577986c796341a43b41b450e4639b82159f664c15b7b89d06bd5a` (SHA-256,
 43,672 B), checked with `shasum -a 256` **before** the run and again **after** it — identical.
 
 Every step recorded `ok`: preflight (with `shim: … sha256 2bce760e… / shim: PASS`), no-release,
 versions, cargo-test (30 tests), hidden-ui (`ok:true`, bounds `[372,668,668]`), hold, package,
-screenshots, entitlement, launch, scan (`SHIM PASS`; `scan-dmg: clean`), desktop-safety,
-commit-identity. `idle-footprint` is **UNMEASURED**: the config carries no `IDLE_PID`.
+screenshots, entitlement, launch, scan (`SHIM PASS`; `scan-dmg: clean`), release-build, idle-launch,
+desktop-safety, commit-identity, and **`idle-footprint` measured**: `pid 77014 = 76 MB after 20s,
+-2 MB while idle (ceiling 200 MB)` — flat at rest, well under the ceiling. The app the idle step
+started was quit normally afterwards.
+
+**A note on the two runs.** `lead/gate-20261124-174254-3606` also passed (`954e0bc`, DMG sha
+`1482c412…`), but recorded `idle-footprint :: UNMEASURED` and compiled the release only inside
+`package`. U001 asked for a green carrying both, so 0.1.13 was re-gated from `764bc5c`; that earlier
+DMG was moved to `lead/gate-20261124-174254-3606/artifact-superseded/` (never published) rather than
+replaced silently, and the artifact of record is the newer one above.
 
 Two earlier runs are **void / failed**, named so nobody mistakes them for evidence:
 - `gate-20261124-154900-22318` — void: started inside a window where the shared runner was being
