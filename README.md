@@ -4,6 +4,16 @@ Control external monitor brightness from the Mac menu bar over DDC/CI. Contrast 
 
 Click the menu-bar display icon to open the panel. The slider at the top moves every display together. Use **Control–Shift–]** or **Control–Shift–[** to step all supported displays by 5%, or switch on **Use the Mac's brightness keys (F1/F2)** to make the Mac's own brightness keys drive the external displays — that needs Accessibility permission, and the panel says so when it is missing. **Start at login** is on by default. Closing the panel does not quit the app; use **Quit Displays Studio KH** in the tray menu. The app doesn't poll or run a helper.
 
+## Screenshots
+
+![The menu-bar panel on the left, listing brightness, contrast and monitor volume for two connected displays](docs/screenshots/panel-light.png)
+
+![The Settings window, with brightness keys, one shortcut pair per display, and startup](docs/screenshots/settings-light.png)
+
+Dark mode: [panel](docs/screenshots/panel-dark.png) · [Settings](docs/screenshots/settings-dark.png). Taken
+from the build being released by `bash scripts/capture-screenshots.sh`, which renders the app's own
+webviews in an isolated data directory with invented displays — no screen capture, no real device name.
+
 ## Local build
 
 Use the macOS Tauri 2 toolchain. Take the shared studio app test lane before any build, probe, or hidden run. No launch is needed to build the crate.

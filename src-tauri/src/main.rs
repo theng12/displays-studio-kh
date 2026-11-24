@@ -36,6 +36,8 @@ mod sparkle {
 mod hardware;
 mod hold;
 mod hotkeys;
+#[cfg(all(feature = "webview-check", target_os = "macos"))]
+mod snapshot;
 mod login;
 mod presets;
 
@@ -76,6 +78,10 @@ async fn ddc<T: Send + 'static>(app: &AppHandle, label: &'static str, run: impl 
 
 #[tauri::command]
 async fn scan(app: AppHandle) -> Result<Vec<hardware::Display>, String> {
+    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+    if app.state::<Snapshot>().0.is_some() {
+        return Ok(hardware::demo());
+    }
     ddc(&app, "Refreshing displays", hardware::scan).await
 }
 
@@ -232,6 +238,21 @@ fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
     ShortcutStatus { enabled: enabled && error.is_none(), error }
 }
 
+/// The panel is a dropdown, not a scroller: it grows to fit the displays it lists (owner bug 2). The
+/// hidden check measures the fixed 372×668 size, so it is left alone there.
+#[tauri::command]
+fn fit_panel(app: AppHandle, window: tauri::WebviewWindow, height: f64) {
+    #[cfg(feature = "webview-check")]
+    if hidden_check(&app) {
+        #[cfg(all(feature = "webview-check", target_os = "macos"))]
+        if app.state::<Snapshot>().0.is_some() {
+            let _ = window.set_size(tauri::LogicalSize::new(372.0, height.clamp(300.0, 1400.0)));
+        }
+        return;
+    }
+    let _ = window.set_size(tauri::LogicalSize::new(372.0, height.clamp(300.0, 1400.0)));
+}
+
 #[tauri::command]
 fn panel_info(app: AppHandle) -> (String, ShortcutStatus, login::Status, brightness_keys::Status, &'static str) {
     (
@@ -362,9 +383,15 @@ fn open_settings_window(app: AppHandle) -> Result<(), String> {
 }
 
 fn show_settings(app: &AppHandle) {
+    open_settings(app, false)
+}
+
+/// `hidden` is the screenshot pass (§5d): same page, built without showing it or changing the app's
+/// activation policy, so no window appears on anyone's screen.
+fn open_settings(app: &AppHandle, hidden: bool) {
     // A menu-bar app has no Dock icon, so a real window must take the app out of accessory mode or it
     // opens behind everything; the close handler puts it back.
-    let _ = app.set_activation_policy(ActivationPolicy::Regular);
+    if !hidden { let _ = app.set_activation_policy(ActivationPolicy::Regular); }
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.show().and_then(|()| window.set_focus());
         return;
@@ -375,7 +402,14 @@ fn show_settings(app: &AppHandle) {
         .inner_size(560.0, 640.0)
         .resizable(false).minimizable(false).maximizable(false)
         .center()
+        .visible(!hidden)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
+    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+    let build = if hidden {
+        build.on_page_load(|_, event| {
+            if event.event() == tauri::webview::PageLoadEvent::Finished { snapshot::note_page_loaded(); }
+        })
+    } else { build };
     let window = match build.build() {
         Ok(window) => window,
         Err(e) => {
@@ -384,8 +418,10 @@ fn show_settings(app: &AppHandle) {
             return;
         }
     };
-    if let Err(e) = window.set_focus() {
-        eprintln!("Couldn't focus Settings: {e}");
+    if !hidden {
+        if let Err(e) = window.set_focus() {
+            eprintln!("Couldn't focus Settings: {e}");
+        }
     }
     let handle = app.clone();
     window.on_window_event(move |event| {
@@ -411,12 +447,26 @@ fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWi
         .visible(!hidden).focused(!hidden)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     #[cfg(feature = "webview-check")]
+    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+    let capturing = app.state::<Snapshot>().0.is_some();
+    #[cfg(not(all(feature = "webview-check", target_os = "macos")))]
+    let capturing = false;
     let builder = if let Some(dir) = app.state::<Check>().0.as_ref() {
-        builder.data_directory(dir.join("webkit")).incognito(true).on_page_load(|window, event| {
-            if event.event() == tauri::webview::PageLoadEvent::Finished {
-                if let Err(e) = window.eval(include_str!("webview-check.js")) { eprintln!("check eval: {e}"); }
-            }
-        })
+        if capturing {
+            // The headless check must not run during a capture: it closes the window when it finishes.
+            builder.data_directory(dir.join("webkit")).incognito(true).on_page_load(|_, event| {
+                if event.event() == tauri::webview::PageLoadEvent::Finished {
+                    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+                    snapshot::note_page_loaded();
+                }
+            })
+        } else {
+            builder.data_directory(dir.join("webkit")).incognito(true).on_page_load(|window, event| {
+                if event.event() == tauri::webview::PageLoadEvent::Finished {
+                    if let Err(e) = window.eval(include_str!("webview-check.js")) { eprintln!("check eval: {e}"); }
+                }
+            })
+        }
     } else { builder };
     let window = builder.build()?;
     #[cfg(not(feature = "webview-check"))]
@@ -468,6 +518,11 @@ fn show_panel_at(app: &AppHandle, under_icon: Option<(f64, f64)>) {
 #[derive(Default)]
 struct Check(Option<PathBuf>);
 
+/// §5d: the directory screenshots are written to. Set only by `--snapshot <dir>`.
+#[cfg(all(feature = "webview-check", target_os = "macos"))]
+#[derive(Default)]
+struct Snapshot(Option<PathBuf>);
+
 #[cfg(feature = "webview-check")]
 #[tauri::command]
 fn check_result(app: AppHandle, window: tauri::WebviewWindow, result: String) -> Result<(), String> {
@@ -491,11 +546,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
         // --test-mode is the same isolated hidden run under the name the studio scanner looks for.
-        [flag, dir] if (flag == "--webview-check" || flag == "--test-mode") && std::path::Path::new(dir).is_dir() => Some(PathBuf::from(dir)),
-        _ => return Err("Expected --webview-check (or --test-mode) <isolated data directory> or --ddc-check <exact monitor name>.".into()),
+        [flag, dir] if (flag == "--webview-check" || flag == "--test-mode" || flag == "--snapshot") && std::path::Path::new(dir).is_dir() => Some(PathBuf::from(dir)),
+        _ => return Err("Expected --webview-check (or --test-mode / --snapshot) <isolated data directory> or --ddc-check <exact monitor name>.".into()),
     };
 
-    let builder = tauri::Builder::default().manage(Bus::default()).manage(Shortcuts::default()).manage(Keys::default()).manage(hold::Hold::default())
+    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+    let snapshot_dir = if std::env::args().any(|a| a == "--snapshot") { test.clone() } else { None };
+
+    #[cfg(all(feature = "webview-check", target_os = "macos"))]
+    let builder = tauri::Builder::default().manage(Snapshot(snapshot_dir));
+    #[cfg(not(all(feature = "webview-check", target_os = "macos")))]
+    let builder = tauri::Builder::default();
+    let builder = builder.manage(Shortcuts::default()).manage(Keys::default()).manage(hold::Hold::default())
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state != ShortcutState::Pressed { return; }
             let app = app.clone();
@@ -524,13 +586,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }).build());
     #[cfg(not(feature = "webview-check"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window]);
+    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, fit_panel]);
     #[cfg(feature = "webview-check")]
-    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, check_result]);
+    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, fit_panel, check_result]);
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
         // The installer reads this URL from the signed feed and calls it before an update.
+        hold::ensure_own_token();
         hold::start_server(app.handle().clone());
         #[cfg(feature = "webview-check")]
         let hidden = app.state::<Check>().0.is_some();
@@ -539,6 +602,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         *app.state::<Shortcuts>().0.lock().unwrap() =
             register_shortcuts(app.handle(), pref_on(app.handle(), "brightness-shortcuts"));
+        if let Some(dir) = app.state::<Snapshot>().0.as_ref().cloned() {
+            // §5d: demo content in the isolated dir, both windows built hidden, then capture and quit.
+            let _ = std::fs::write(dir.join("presets.json"), snapshot::DEMO_PRESETS);
+            create_panel(app.handle(), true)?;
+            open_settings(app.handle(), true);
+            snapshot::run(app.handle().clone(), dir);
+            return Ok(());
+        }
         if hidden {
             create_panel(app.handle(), true)?;
             return Ok(());

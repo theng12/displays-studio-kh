@@ -15,7 +15,7 @@
   <key>SUEnableAutomaticChecks</key>
   <true/>
   <key>KHHoldTokenFile</key>
-  <string>~/Library/KHUpdater/state/hold-token</string>
+  <string>~/Library/Application Support/Displays Studio KH/hold-token</string>
   <key>KHHoldURL</key>
   <string>http://127.0.0.1:8650/api/maintenance/hold</string>
 </dict>

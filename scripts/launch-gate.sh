@@ -25,7 +25,7 @@ NAME="${2:?usage: launch-gate.sh <dmg> \"<app name>\"}"
 # correct since the vendored shim expands it. 847e77db (cleared by Main 2026-11-23 23:57) is the pin that
 # scopes crash reports to this app, so a neighbour's crash can no longer fail Displays' gate; it reads a
 # two-entry REQUIRED-SHIM.txt and notes this app's missing `.a` instead of condemning it.
-TOOL="${KH_LAUNCH_CHECK:-/Users/vengtheng/Developer/_orchestra/tools/pinned/install-launch-check-847e77db5c99d5d6.sh}"
+TOOL="${KH_LAUNCH_CHECK:-${HOME:?HOME must be set}/Developer/_orchestra/tools/pinned/install-launch-check-847e77db5c99d5d6.sh}"
 [ -x "$TOOL" ] || { echo "launch-gate: INVALID — the shared check is missing at $TOOL"; exit 75; }
 echo "launch-gate: tool $TOOL sha256 $(shasum -a 256 "$TOOL" | cut -d' ' -f1)"
 

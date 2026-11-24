@@ -10,7 +10,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 LIB=src-tauri/vendor/khsparkle/libkhsparkle.a
-REQUIRED="818826a79d4e54885cbb5ad167f7425da8ba77436c6a5e277532f400aa1b4216"
+REQUIRED="2bce760e7749a0f21dfa378c53c391d039401355012e774a81b691043a3cb17f"
 WANT="${1:-$REQUIRED}"
 
 [ -f "$LIB" ] || { echo "shim: MISSING $LIB"; exit 1; }

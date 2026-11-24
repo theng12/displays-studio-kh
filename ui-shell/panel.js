@@ -182,7 +182,17 @@ async function refresh() {
   } finally {
     setBusy(false);
     list.removeAttribute('aria-busy');
+    fit();
   }
+}
+
+// The dropdown shows everything it lists; a taller one is better than a scrollbar. Measured after the
+// list is in the DOM (a hidden window may never run requestAnimationFrame), so no animation frame.
+function fit() {
+  // scrollHeight stops at the viewport when the body scrolls, so measure the last child's bottom.
+  const bottom = [...document.body.children].reduce((max, node) => Math.max(max, node.getBoundingClientRect().bottom), 0);
+  const height = Math.ceil(bottom) + 14;
+  if (height > 40) invoke('fit_panel', { height }).catch(() => { /* the fixed size still works */ });
 }
 
 refreshButton.addEventListener('click', refresh);

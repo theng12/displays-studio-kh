@@ -243,6 +243,38 @@ fn resume_request(app: &AppHandle) -> String {
     .to_string()
 }
 
+/// §2d: the app owns its credential — the shared Launcher token is only the source it is seeded from.
+pub fn own_token_path() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_default())
+        .join("Library/Application Support/Displays Studio KH/hold-token")
+}
+
+/// First start: COPY the shared token into this app's own 0600 file. Never move or delete the shared
+/// one — the apps still on it need it. A fresh machine has no shared token, so nothing is written and
+/// the route refuses until one is placed. Skipped when an override names the file (hidden tests).
+pub fn ensure_own_token() {
+    if std::env::var(HOLD_TOKEN_ENV).map(|v| !v.trim().is_empty()).unwrap_or(false) {
+        return;
+    }
+    let own = own_token_path();
+    if own.exists() {
+        return;
+    }
+    let shared = PathBuf::from(std::env::var("HOME").unwrap_or_default())
+        .join("Library/KHUpdater/state/hold-token");
+    let Ok(bytes) = std::fs::read(&shared) else { return };
+    if let Some(dir) = own.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    use std::os::unix::fs::OpenOptionsExt;
+    // shortcut: the source is read whole (<=512 B in practice), no streaming needed.
+    let opened = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&own);
+    if let Ok(mut file) = opened {
+        use std::io::Write;
+        let _ = file.write_all(&bytes);
+    }
+}
+
 fn hold_token_path() -> PathBuf {
     if let Ok(override_path) = std::env::var(HOLD_TOKEN_ENV) {
         let trimmed = override_path.trim();
@@ -250,8 +282,7 @@ fn hold_token_path() -> PathBuf {
             return PathBuf::from(trimmed);
         }
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(home).join("Library").join("KHUpdater").join("state").join("hold-token")
+    own_token_path()
 }
 
 /// Reads the Launcher's hold credential fresh on every request so an atomic rotation takes effect

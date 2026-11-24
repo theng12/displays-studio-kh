@@ -13,6 +13,24 @@ pub struct Display {
     levels: Vec<Level>,
 }
 
+/// Demo displays for the screenshot pass (§5d): invented names and levels, so no real device,
+/// product name or live reading ever reaches a published image. Test-only, behind the check feature.
+#[cfg(feature = "webview-check")]
+pub fn demo() -> Vec<Display> {
+    vec![
+        Display {
+            id: "demo-canvas".into(),
+            name: "Canvas 27\"".into(),
+            levels: vec![Level { code: 0x10, percent: Some(62) }, Level { code: 0x12, percent: Some(50) }, Level { code: 0x62, percent: Some(40) }],
+        },
+        Display {
+            id: "demo-study".into(),
+            name: "Study 24\"".into(),
+            levels: vec![Level { code: 0x10, percent: Some(45) }, Level { code: 0x12, percent: Some(55) }, Level { code: 0x62, percent: None }],
+        },
+    ]
+}
+
 #[derive(Clone, Copy, Serialize)]
 pub struct Level {
     code: u8,
