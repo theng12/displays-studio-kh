@@ -1,0 +1,61 @@
+identity[before-wait] branch=main head=954e0bca0 dirty=0
+runner: gate-run.sh f05b010c16e5 at /Users/vengtheng/Developer/_orchestra/tools/gate-run.sh
+machine: 13651 MB available, 5012.50 of 6144.00 MB swap used, 7058 GB free
+lane acquired: ACQUIRED: displays-studio + displays-002 + started 2026-11-24T10:42:54Z + light 2000 MB + holder-pid 3606 + session-pid 91955 + declared normal + gate yes + evid /Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/lead/gate-20261124-174254-3606
+identity[after-wait] branch=main head=954e0bca0 dirty=0
+step preflight :: bash scripts/build-mac.sh --check
+  ok preflight
+step no-release :: bash -c 'if gh release view 0.1.13 -R theng12/displays-studio-kh >/dev/null 2>&1; then echo "0.1.13 already has a release in the repo; a version is released once"; exit 1; fi'
+  ok no-release
+step versions :: python3 -c "import json,sys;p=json.load(open('src-tauri/tauri.conf.json'));w=json.load(open('ui-shell/whats-new.json'))[0]['version'];sys.exit(0 if p['version']=='0.1.13'==w else 1)"
+  ok versions
+step cargo-test :: bash -c 'cd src-tauri && cargo test --offline --locked --features custom-protocol,webview-check --bin displays-studio-kh'
+  ok cargo-test
+step hidden-ui :: bash -c 'cd src-tauri && cargo build --offline --locked --features custom-protocol,webview-check && cd .. && python3 -I scripts/verify-hidden.py src-tauri/target/debug/displays-studio-kh'
+  ok hidden-ui
+step hold :: bash tests/hold.sh src-tauri/target/debug/displays-studio-kh
+  ok hold
+step package :: bash scripts/build-mac.sh
+  ok package
+step screenshots :: bash -c 'bash scripts/capture-screenshots.sh && bash /Users/vengtheng/Developer/_orchestra/tools/check-app-screenshots.sh /Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/app'
+  ok screenshots
+step entitlement :: bash scripts/check-entitlement.sh dist/*0.1.13.dmg
+  ok entitlement
+step launch :: bash scripts/launch-gate.sh dist/*0.1.13.dmg "Displays Studio KH"
+  ok launch
+step scan :: bash /Users/vengtheng/Developer/_orchestra/tools/pinned/studio-gate-76dbf7aa09f5109b.sh "/Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/app"
+  ok scan
+step desktop-safety :: check-desktop-safety.sh over the harness
+  ok desktop-safety
+step commit-identity :: check-commit-identity.sh
+  ok commit-identity
+step idle-footprint :: UNMEASURED (set IDLE_PID in the gate config to measure it)
+step idle-footprint :: UNMEASURED — no IDLE_PID in the config
+artifact dist/Displays Studio KH-0.1.13.dmg 4725758 bytes sha256=1482c412004e9b7f6a7ef74147c07657ac7464cc754141da5c51d1222cbe9a46 dev=16777229 ino=23337909 size=4725758 mtime=1795517009.693876521 ctime=1795517013.014095787
+step scan-dmg :: /Users/vengtheng/Developer/_orchestra/developer-handoff/kh-mirror-tools/scan-dmg.sh Displays Studio KH-0.1.13.dmg
+== contents ==
+
+/Displays Studio KH.app
+/Displays Studio KH.app/Contents
+== suspicious files ==
+sort: No such file or directory
+sort: No such file or directory
+sort: No such file or directory
+sort: No such file or directory
+sort: No such file or directory
+== OWNER HITS — publish stops on any line here ==
+  (100.64.0.0/10 alone is the tailnet range literal — accepted, filtered)
+== vendor licence and credit addresses, expected (font OFL texts, bundled ffmpeg) ==
+== vendor contacts published in their own licence or credits, expected ==
+== documentation example, expected (app's own placeholder/try-me text) ==
+== certificate-authority addresses, expected (vendor binaries) ==
+== brand identifiers, expected (bundle ids, copyright, author fields) ==
+== third-party binaries, expected (vendor frameworks, node_modules, locales) ==
+== UNKNOWN — none ==
+== cost: 89 files, largest 12 MB /Displays Studio KH.app/Contents/MacOS/displays-studio-kh, 1s wall ==
+== this pass covers: everything except the embedded runtime (/Contents/Helpers/, /Contents/Resources/python/) and the scoped vendor paths above — an address pasted there would not stop it ==
+scan-receipt {"sha256": "1482c412004e9b7f6a7ef74147c07657ac7464cc754141da5c51d1222cbe9a46", "exit": 0, "scanner_version": "scan-dmg/2026-11-20", "at": "2026-11-24T10:43:56Z", "files": 89, "excused": []}
+== done: dist/Displays Studio KH-0.1.13.dmg ==
+scan-dmg: clean
+GATE PASS displays-studio 954e0bca03e8ae81257d3a4f010d78a561f0f0b8 2026-11-24T10:43:56Z
+evidence /Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/lead/gate-20261124-174254-3606
