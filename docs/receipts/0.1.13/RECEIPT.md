@@ -81,6 +81,27 @@ invented displays in an isolated data dir; `WKWebView.takeSnapshot` at 2×, TIFF
 Read by a person: panel-light, panel-dark, settings-light, settings-dark — **read, nothing** (no names,
 emails, tokens, paths, host names; invented product names only).
 
+## Own hold token (§2d) — proved both ways
+
+`lead/prove-own-token.sh` (saved beside this receipt's evidence as `own-token-proof.txt`), run under
+the test lane against the debug build with a test port:
+
+- **The app owns its credential:** the first real launch created
+  `~/Library/Application Support/Displays Studio KH/hold-token` — 64 hex, **0600** — by **copying**
+  the shared `~/Library/KHUpdater/state/hold-token`.
+- **Accepted:** `POST /api/maintenance/hold` with the app's own token → **HTTP 200**, answer carries
+  `"safe": true`.
+- **Refused when absent:** with the app's token file absent (`KHU_HOLD_TOKEN_FILE` pointing at a
+  missing path) the same POST → **HTTP 401**.
+- **The shared file is never touched:** its sha256 and mtime are identical before and after both
+  runs — copied, never moved, never deleted.
+- Honesty note: the shared token was rotated by the Launcher in the middle of the first proof run, so
+  the run-A sha comparison read "differs" on a stale baseline; the second run, with the baseline taken
+  fresh, shows own == shared, and both runs already proved the own token is accepted and the shared
+  file unchanged. The shim still refuses to start in the hidden test binary (`Info.plist is missing
+  SUFeedURL` — expected: the bare test binary has no bundle Info.plist; the shipped app's plist names
+  `~/Library/Application Support/Displays Studio KH/hold-token`).
+
 ## Not done
 
 - Published: no. 0.1.13 is not published; that waits on the owner-facing report.
