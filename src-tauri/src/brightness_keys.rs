@@ -186,7 +186,11 @@ extern "C" fn tap_callback(
     if let Some(app) = APP.get() {
         let app = app.clone();
         std::thread::spawn(move || {
-            let _ = app.emit("brightness-step", hardware::step(brighter));
+            // F1/F2 obey the same Settings choice as the global pair: every display, or the selected one.
+            let outcome = crate::step_follow(&app, brighter).unwrap_or_else(|reason| {
+                hardware::Step::failed(reason)
+            });
+            let _ = app.emit("brightness-step", outcome);
         });
     }
     std::ptr::null_mut()

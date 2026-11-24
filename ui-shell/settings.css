@@ -1,0 +1,17 @@
+body.settings { padding: 16px 18px; max-height: none; overflow-y: auto; }
+body.settings main { display: grid; gap: 14px; }
+body.settings section { border-top: 1px solid var(--line); padding: 12px 0; display: grid; gap: 8px; }
+body.settings h2 { font-size: 14px; font-weight: 650; }
+body.settings label { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; }
+body.settings label.inline { width: 100%; }
+body.settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+body.settings legend { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+body.settings select { min-height: 26px; padding: 3px 6px; color: inherit; background: var(--control);
+  border: 1px solid var(--line); border-radius: 6px; flex: 1; min-width: 0; }
+body.settings footer { display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--line); padding-top: 10px; }
+body.settings footer p { margin: 0; }
+.hotkey-row { display: grid; grid-template-columns: minmax(90px, 1fr) auto auto; gap: 8px; align-items: center; }
+.hotkey-row .name { overflow-wrap: anywhere; }
+.hotkey-row kbd { color: var(--ink); }
+.hotkey-row .recording { color: var(--accent); }

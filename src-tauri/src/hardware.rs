@@ -227,16 +227,38 @@ pub struct Step {
 
 impl Step {
     pub fn message(&self) -> &str { &self.message }
+    /// A step that could not run, carried in the same shape so the panel shows one kind of answer.
+    pub fn failed(message: String) -> Step {
+        Step { changed: Vec::new(), message, failed: true }
+    }
+}
+
+/// One monitor, one step. The only place the step size lives, so the global pair and a per-display
+/// hotkey move a monitor by the same amount.
+fn step_monitor(monitor: &mut Monitor, brighter: bool) -> Result<Level, String> {
+    let (value, max) = read(monitor, BRIGHTNESS)?;
+    let delta = max.div_ceil(20);
+    let target = if brighter { value.saturating_add(delta).min(max) } else { value.saturating_sub(delta) };
+    if value == target { Ok(level(BRIGHTNESS, value, max)) } else { write(monitor, BRIGHTNESS, target, max) }
+}
+
+/// One named display — the selected display, or a display with its own hotkey.
+pub fn step_on(display: &str, brighter: bool) -> Result<Step, String> {
+    let mut monitor = monitors()?.into_iter().find(|m| id(m.handle()) == display)
+        .ok_or("That display isn't connected. Choose another one in Settings.")?;
+    let outcome = step_monitor(&mut monitor, brighter);
+    let (changed, message, failed) = match outcome {
+        Ok(value) => (vec![(display.to_string(), value)], format!("Selected display: brightness {}", if brighter { "up" } else { "down" }), false),
+        Err(reason) => (Vec::new(), reason, true),
+    };
+    Ok(Step { changed, message, failed })
 }
 
 pub fn step(brighter: bool) -> Result<Step, String> {
     let mut changed = Vec::new();
     let mut failed = 0;
     for mut monitor in monitors()? {
-        let Ok((value, max)) = read(&mut monitor, BRIGHTNESS) else { continue };
-        let delta = max.div_ceil(20);
-        let target = if brighter { value.saturating_add(delta).min(max) } else { value.saturating_sub(delta) };
-        let result = if value == target { Ok(level(BRIGHTNESS, value, max)) } else { write(&mut monitor, BRIGHTNESS, target, max) };
+        let result = step_monitor(&mut monitor, brighter);
         match result {
             Ok(value) => changed.push((id(monitor.handle()), value)),
             Err(_) => failed += 1,
