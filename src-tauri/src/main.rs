@@ -242,6 +242,9 @@ fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
 /// hidden check measures the fixed 372×668 size, so it is left alone there.
 #[tauri::command]
 fn fit_panel(app: AppHandle, window: tauri::WebviewWindow, height: f64) {
+    // The release build never reads the handle: only the check feature can suppress the resize.
+    #[cfg(not(feature = "webview-check"))]
+    let _ = &app;
     #[cfg(feature = "webview-check")]
     if hidden_check(&app) {
         #[cfg(all(feature = "webview-check", target_os = "macos"))]
@@ -451,6 +454,7 @@ fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWi
     let capturing = app.state::<Snapshot>().0.is_some();
     #[cfg(not(all(feature = "webview-check", target_os = "macos")))]
     let capturing = false;
+    #[cfg(feature = "webview-check")]
     let builder = if let Some(dir) = app.state::<Check>().0.as_ref() {
         if capturing {
             // The headless check must not run during a capture: it closes the window when it finishes.
@@ -602,6 +606,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         *app.state::<Shortcuts>().0.lock().unwrap() =
             register_shortcuts(app.handle(), pref_on(app.handle(), "brightness-shortcuts"));
+        #[cfg(all(feature = "webview-check", target_os = "macos"))]
         if let Some(dir) = app.state::<Snapshot>().0.as_ref().cloned() {
             // §5d: demo content in the isolated dir, both windows built hidden, then capture and quit.
             let _ = std::fs::write(dir.join("presets.json"), snapshot::DEMO_PRESETS);
