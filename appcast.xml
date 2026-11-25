@@ -6,6 +6,17 @@
     <description>Displays Studio KH updates</description>
     <language>en</language>
     <item>
+      <title>0.1.17</title>
+      <pubDate>Wed, 25 Nov 2026 15:08:09 +0000</pubDate>
+      <sparkle:version>0.1.17</sparkle:version>
+      <sparkle:shortVersionString>0.1.17</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/theng12/displays-studio-kh/releases/download/0.1.17/a76888c40689-Displays.Studio.KH-0.1.17.dmg"
+                 length="4786657"
+                 type="application/octet-stream"
+                 sparkle:edSignature="33yi6UqRsBv/GRAErl5RfBPLyDv2JPb86hpguWEJn5GVaUIIkQ2sWoqpte1Y9TUlFVUb1j/rEW58xol+VWhHAA=="/>
+    </item>
+    <item>
       <title>0.1.16</title>
       <pubDate>Wed, 25 Nov 2026 10:11:27 +0000</pubDate>
       <sparkle:version>0.1.16</sparkle:version>
@@ -26,17 +37,6 @@
                  length="4751314"
                  type="application/octet-stream"
                  sparkle:edSignature="EIziLwWdvcpr9eHwZWdxXoxI5rspoK2K7N95C5q0m5T8MgOrssGRXYwOk7gFAisTUMEqA/+ACg84/TpOit05Cg=="/>
-    </item>
-    <item>
-      <title>0.1.13</title>
-      <pubDate>Tue, 24 Nov 2026 19:28:29 +0000</pubDate>
-      <sparkle:version>0.1.13</sparkle:version>
-      <sparkle:shortVersionString>0.1.13</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/theng12/displays-studio-kh/releases/download/0.1.13/54d97a0b119c-Displays.Studio.KH-0.1.13.dmg"
-                 length="4726035"
-                 type="application/octet-stream"
-                 sparkle:edSignature="9Qu8XCgiK7YHaQdViJ3KkkkguCAppGpqgxP8b2/uELwGogb6bfhs49xt5gaObnDZmVkdhWVD8n/yjNfhn3cYDw=="/>
     </item>
   </channel>
 </rss>
