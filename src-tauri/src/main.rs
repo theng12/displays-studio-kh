@@ -266,8 +266,8 @@ pub(crate) async fn run_brightness_step(
     // displays only, never on the built-in screen.
     if let Ok(step) = &outcome {
         if !hidden_check(app) && pref_on(app, "hud") {
-            if let Some((display, percent)) = hud::pick(&target, &step.brightness_changes(), hardware::pointer_display()) {
-                hud::show(app, display, percent);
+            if let Some((_display, percent)) = hud::pick(&target, &step.brightness_changes(), hardware::pointer_display()) {
+                hud::show(app, percent);
             }
         }
     }
@@ -689,10 +689,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
-        // Measured check of the HUD offscreen, for the release gate. Never draws on the screen.
-        if std::env::var("DISPLAYS_STUDIO_HUD_SELFTEST").ok().as_deref() == Some("1") {
-            hud::selftest(app.handle().clone());
-        }
         // The installer reads this URL from the signed feed and calls it before an update.
         hold::ensure_own_token();
         hold::start_server(app.handle().clone());
@@ -766,6 +762,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     show_panel(app);
                 }
             }).build(app)?;
+        // Measured check of the HUD offscreen, for the release gate. Never draws on the screen.
+        // After the tray is built: the measurement covers the real menu-bar icon's frame.
+        if std::env::var("DISPLAYS_STUDIO_HUD_SELFTEST").ok().as_deref() == Some("1") {
+            hud::selftest(app.handle().clone());
+        }
         // Last: the shim wants the menu-bar item to exist, and it must not run in the hidden check
         // (that returns above), where a refused updater would be noise on someone else's screen.
         sparkle::start();

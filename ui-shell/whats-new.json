@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.1.17",
+    "date": "2026-11-25",
+    "items": [
+      "The brightness bar now appears just under this app's menu-bar icon instead of at the bottom of the screen, so it shows up where you would look for it.",
+      "If the icon is hidden in the menu bar's overflow, the bar falls back to the top-right corner of the screen.",
+      "It still appears only for external monitors, never takes focus, and fades away after about a second."
+    ]
+  },
+  {
     "version": "0.1.16",
     "date": "2026-11-25",
     "items": [

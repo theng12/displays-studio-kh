@@ -1,5 +1,11 @@
 # What's New
 
+## 0.1.17 — 2026-11-25
+
+- The brightness bar now appears just under this app's menu-bar icon, at the top of the screen, so it shows up where you would look for it. It stays centred on the icon and slides in from the edge when the icon sits near one.
+- If the icon is tucked into the menu bar's overflow and has no place on screen, the bar falls back to the top-right corner of the screen — not the bottom.
+- Nothing else changed: it still appears only for external monitors, never takes focus, never gets in the way of the mouse, and fades after about a second.
+
 ## 0.1.16 — 2026-11-25
 
 - Pressing F1 or F2 now shows a small brightness bar at the bottom of the monitor it changed, with the new percentage, and fades away after about a second — the same idea as the volume display, for monitors macOS draws nothing for.

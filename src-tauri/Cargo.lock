@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "displays-studio-kh"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "block2",
  "core-graphics 0.24.0",

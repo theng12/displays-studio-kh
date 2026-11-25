@@ -15,9 +15,10 @@ use std::{
 
 use objc2::{define_class, msg_send, rc::Retained, MainThreadMarker};
 use objc2_app_kit::{
-    NSAnimationContext, NSApplication, NSApplicationActivationOptions, NSColor, NSRunningApplication, NSFont, NSLevelIndicator, NSLevelIndicatorStyle, NSPanel, NSTextField,
-    NSVisualEffectBlendingMode, NSWorkspace, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
-    NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSAnimationContext, NSApplication, NSApplicationActivationOptions, NSColor, NSFont, NSLevelIndicator,
+    NSLevelIndicatorStyle, NSPanel, NSRunningApplication, NSScreen, NSTextField,
+    NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
+    NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use tauri::AppHandle;
@@ -26,17 +27,50 @@ use crate::brightness_keys::TargetPath;
 
 pub(crate) const HUD_W: f64 = 172.0;
 pub(crate) const HUD_H: f64 = 44.0;
-/// Above the bottom edge, clear of the Dock's usual place — the system HUD sits here too.
-pub(crate) const HUD_BOTTOM_MARGIN: f64 = 96.0;
+/// The gap between the menu-bar icon's bottom edge and the HUD's top edge.
+pub(crate) const ICON_GAP: f64 = 6.0;
+/// Never closer than this to a screen edge.
+pub(crate) const SCREEN_MARGIN: f64 = 8.0;
 /// Fully visible for this long after a press, then the fade below, then hidden.
 pub(crate) const VISIBLE: Duration = Duration::from_millis(900);
 pub(crate) const FADE: f64 = 0.2;
 
-/// The panel's frame in AppKit coordinates (bottom-left origin) for a display whose CoreGraphics
-/// bounds (top-left origin) and the main display's height are given.
-pub(crate) fn frame_for(cg: (f64, f64, f64, f64), main_height: f64) -> (f64, f64, f64, f64) {
-    let (x, y, w, h) = cg;
-    (x + (w - HUD_W) / 2.0, main_height - y - h + HUD_BOTTOM_MARGIN, HUD_W, HUD_H)
+/// Where the HUD goes, in AppKit coordinates (bottom-left origin).
+///
+/// Under this app's menu-bar icon, centred on it, `ICON_GAP` below its bottom edge and clamped so it
+/// never crosses a screen edge. When there is no icon frame to use (the item is hidden in the menu
+/// bar's overflow) it falls back to the top-right of the screen — near where the eye already goes —
+/// and never to the bottom of the screen.
+///
+/// `icon` and `screen` are `(x, y, w, h)`; `screen` is the screen the icon sits on.
+pub(crate) fn anchor(icon: Option<(f64, f64, f64, f64)>, screen: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
+    let (sx, sy, sw, sh) = screen;
+    let lowest = sx + SCREEN_MARGIN;
+    let highest = sx + sw - HUD_W - SCREEN_MARGIN;
+    match icon {
+        Some((ix, iy, iw, _)) => {
+            let x = (ix + iw / 2.0 - HUD_W / 2.0).max(lowest).min(highest.max(lowest));
+            let y = (iy - ICON_GAP - HUD_H).max(sy + SCREEN_MARGIN);
+            (x, y, HUD_W, HUD_H)
+        }
+        None => {
+            let x = (sx + sw - HUD_W - SCREEN_MARGIN).max(lowest);
+            let y = (sy + sh - 28.0 - ICON_GAP - HUD_H).max(sy + SCREEN_MARGIN);
+            (x, y, HUD_W, HUD_H)
+        }
+    }
+}
+
+/// The screen an icon frame belongs to: the first screen whose frame contains its centre, so a HUD
+/// follows the eye to the icon. Falls back to the first screen when nothing contains it.
+pub(crate) fn screen_for(icon: (f64, f64, f64, f64), screens: &[(f64, f64, f64, f64)]) -> Option<(f64, f64, f64, f64)> {
+    let (ix, iy, iw, ih) = icon;
+    let (cx, cy) = (ix + iw / 2.0, iy + ih / 2.0);
+    screens
+        .iter()
+        .find(|(x, y, w, h)| cx >= *x && cx <= x + w && cy >= *y && cy <= y + h)
+        .or_else(|| screens.first())
+        .copied()
 }
 
 /// The display a HUD belongs on and the new percentage, or none where it must stay quiet: a
@@ -102,20 +136,61 @@ define_class!(
     }
 );
 
-/// Shows the HUD on `display` at `percent`. Never activates the app and never takes focus.
-pub(crate) fn show(app: &AppHandle, display: u32, percent: u16) {
-    let bounds = core_graphics::display::CGDisplay::new(display).bounds();
-    let main_height = core_graphics::display::CGDisplay::main().bounds().size.height;
-    show_at(
-        app,
-        frame_for((bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height), main_height),
-        percent,
-    );
+/// Shows the HUD at `percent`, anchored under this app's menu-bar icon. Never activates the app and
+/// never takes focus.
+pub(crate) fn show(app: &AppHandle, percent: u16) {
+    show_at(app, None, percent);
 }
 
-fn show_at(app: &AppHandle, frame: (f64, f64, f64, f64), percent: u16) {
+/// The frame to use right now: under this app's menu-bar icon, on the icon's own screen, with the
+/// top-right fallback when the icon has no frame. Must run on the main thread.
+pub(crate) fn hud_frame(app: &AppHandle) -> (f64, f64, f64, f64) {
+    let screens = screens();
+    let icon = status_item_frame(app);
+    let screen = icon.and_then(|icon| screen_for(icon, &screens)).or_else(|| screens.first().copied());
+    anchor(icon, screen.unwrap_or((0.0, 0.0, 1920.0, 1080.0)))
+}
+
+/// Every screen's frame, in AppKit coordinates.
+fn screens() -> Vec<(f64, f64, f64, f64)> {
+    let Some(mtm) = MainThreadMarker::new() else { return Vec::new() };
+    NSScreen::screens(mtm)
+        .iter()
+        .map(|screen| {
+            let frame = screen.frame();
+            (frame.origin.x, frame.origin.y, frame.size.width, frame.size.height)
+        })
+        .collect()
+}
+
+/// This app's own menu-bar status item frame, in AppKit coordinates, taken from the status item's
+/// own button window. `None` when the item has no laid-out window — hidden in the menu bar's
+/// overflow, or measured before the first layout — which the caller answers with the top-right
+/// fallback.
+pub(crate) fn status_item_frame(app: &AppHandle) -> Option<(f64, f64, f64, f64)> {
+    let tray = app.tray_by_id("displays")?;
+    let frame = tray
+        .with_inner_tray_icon(|inner| {
+            let mtm = MainThreadMarker::new()?;
+            let window = inner.ns_status_item()?.button(mtm)?.window()?;
+            let frame = window.frame();
+            (frame.size.width > 0.0 && frame.size.height > 0.0).then_some((
+                frame.origin.x,
+                frame.origin.y,
+                frame.size.width,
+                frame.size.height,
+            ))
+        })
+        .ok()??;
+    Some(frame)
+}
+
+fn show_at(app: &AppHandle, frame: Option<(f64, f64, f64, f64)>, percent: u16) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    let _ = app.run_on_main_thread(move || place_and_show(frame, percent));
+    // The anchor is read on the main thread: the menu bar and the screens are only readable there,
+    // and a key press arrives on the tap's own thread.
+    let placing = app.clone();
+    let _ = app.run_on_main_thread(move || place_and_show(frame.unwrap_or_else(|| hud_frame(&placing)), percent));
     // One short-lived thread per press: sleep, then fade on the main thread. No polling, no timer
     // that outlives the press.
     let handle = app.clone();
@@ -273,11 +348,17 @@ pub(crate) fn selftest(app: AppHandle) {
         println!("HUD SELFTEST FAIL: not on the main thread");
         std::process::exit(1);
     };
-    let (x, y, w, h) = frame_for((0.0, 0.0, 1920.0, 1080.0), 1080.0);
-    let frame_ok = (x - (1920.0 - HUD_W) / 2.0).abs() < 0.5
-        && (y - HUD_BOTTOM_MARGIN).abs() < 0.5
+    // The anchor maths, on a screen 0..1920 x 0..1080 with the icon centred at x=960 in the menu bar.
+    let icon = (950.0, 1056.0, 20.0, 24.0);
+    let screen = (0.0, 0.0, 1920.0, 1080.0);
+    let (x, y, w, h) = anchor(Some(icon), screen);
+    let frame_ok = (x - (960.0 - HUD_W / 2.0)).abs() < 0.5
+        && (y - (1056.0 - ICON_GAP - HUD_H)).abs() < 0.5
         && w == HUD_W && h == HUD_H;
-    println!("HUD SELFTEST: frame on a 1920x1080 display = {x:.0},{y:.0} {w:.0}x{h:.0} — bottom-centre, {HUD_BOTTOM_MARGIN:.0} above the bottom edge: {}", if frame_ok { "ok" } else { "FAIL" });
+    println!("HUD SELFTEST: anchor under a menu-bar icon = {x:.0},{y:.0} {w:.0}x{h:.0} — centred under the icon, {ICON_GAP:.0} below it: {}", if frame_ok { "ok" } else { "FAIL" });
+    // The menu bar before its first layout: the item has no frame yet, so this press falls back.
+    let before = hud_frame(&app);
+    println!("HUD SELFTEST: before layout — icon {:?}, HUD would fall back to {:.0},{:.0}", status_item_frame(&app), before.0, before.1);
 
     let showing = app.clone();
     let reading = app.clone();
@@ -290,7 +371,19 @@ pub(crate) fn selftest(app: AppHandle) {
             let Some(mtm) = MainThreadMarker::new() else { return };
             *FRONT_BEFORE.lock().unwrap() = frontmost_bundle(mtm);
             println!("HUD SELFTEST: frontmost before the HUD = {:?}", FRONT_BEFORE.lock().unwrap());
-            show_at(&show_handle, (-6000.0, -6000.0, HUD_W, HUD_H), 50);
+            // After the first layout: the real menu-bar icon, and where the HUD would sit under it.
+            let (x, y, w, h) = hud_frame(&show_handle);
+            match status_item_frame(&show_handle) {
+                Some((ix, iy, iw, ih)) => println!(
+                    "HUD SELFTEST: live anchor — icon {ix:.0},{iy:.0} {iw:.0}x{ih:.0}, HUD {x:.0},{y:.0} {w:.0}x{h:.0}, centred={} under={}",
+                    (x - (ix + iw / 2.0 - HUD_W / 2.0)).abs() < 0.5,
+                    (y + h - (iy - ICON_GAP)).abs() < 0.5 || y + h <= iy
+                ),
+                None => println!(
+                    "HUD SELFTEST: live anchor — icon not laid out (menu-bar overflow or hidden), HUD falls back to {x:.0},{y:.0} {w:.0}x{h:.0} at the top-right"
+                ),
+            }
+            show_at(&show_handle, Some((-6000.0, -6000.0, HUD_W, HUD_H)), 50);
         });
         std::thread::sleep(Duration::from_millis(300));
         let _ = reading.run_on_main_thread(move || {
@@ -322,7 +415,7 @@ pub(crate) fn selftest(app: AppHandle) {
         let again = finishing.clone();
         let again_handle = app.clone();
         let _ = again.run_on_main_thread(move || {
-            show_at(&again_handle, (-6000.0, -6000.0, HUD_W, HUD_H), 52);
+            show_at(&again_handle, Some((-6000.0, -6000.0, HUD_W, HUD_H)), 52);
         });
         std::thread::sleep(Duration::from_millis(250));
         let after_second = app.clone();
@@ -400,19 +493,59 @@ mod tests {
     }
 
     #[test]
-    fn the_hud_sits_bottom_centre_on_each_display() {
-        let centre = |x: f64, w: f64| x + (w - HUD_W) / 2.0;
-        assert_eq!(frame_for((0.0, 0.0, 1920.0, 1080.0), 1080.0), (centre(0.0, 1920.0), HUD_BOTTOM_MARGIN, HUD_W, HUD_H));
-        // A taller second display to the right still puts the HUD on its own bottom edge.
-        assert_eq!(
-            frame_for((1920.0, 0.0, 2560.0, 1440.0), 1080.0),
-            (centre(1920.0, 2560.0), 1080.0 - 1440.0 + HUD_BOTTOM_MARGIN, HUD_W, HUD_H)
-        );
-        // A display above the main one converts back into AppKit's upward-positive coordinates.
-        assert_eq!(
-            frame_for((0.0, -1080.0, 1920.0, 1080.0), 1080.0),
-            (centre(0.0, 1920.0), 1080.0 + 1080.0 - 1080.0 + HUD_BOTTOM_MARGIN, HUD_W, HUD_H)
-        );
+    fn the_hud_sits_centred_under_the_menu_bar_icon() {
+        // 1920-wide screen, icon at x 950..970 in a 24 pt menu bar.
+        let icon = (950.0, 1056.0, 20.0, 24.0);
+        let (x, y, w, h) = anchor(Some(icon), (0.0, 0.0, 1920.0, 1080.0));
+        assert_eq!(x, 960.0 - HUD_W / 2.0);
+        assert_eq!(y, 1056.0 - ICON_GAP - HUD_H);
+        assert_eq!((w, h), (HUD_W, HUD_H));
+        // The top edge of the HUD is below the icon, never over the menu bar.
+        assert!(y + h <= 1056.0);
+    }
+
+    fn an_icon_near_the_left_edge_pushes_the_hud_in_from_the_edge() {
+        let (x, _, _, _) = anchor(Some((2.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 1920.0, 1080.0));
+        assert_eq!(x, SCREEN_MARGIN);
+    }
+
+    fn an_icon_near_the_right_edge_pushes_the_hud_in_from_the_edge() {
+        let (x, _, _, _) = anchor(Some((1900.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 1920.0, 1080.0));
+        assert_eq!(x, 1920.0 - HUD_W - SCREEN_MARGIN);
+    }
+
+    fn a_narrow_screen_keeps_the_hud_on_screen() {
+        // Narrower than the HUD plus both margins: it sits at the left margin rather than off-screen.
+        let (x, _, _, _) = anchor(Some((50.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 150.0, 1080.0));
+        assert_eq!(x, SCREEN_MARGIN);
+    }
+
+    fn a_second_screen_anchors_in_its_own_coordinates() {
+        // Screen to the right of the main one, icon near its top-left.
+        let (x, y, _, _) = anchor(Some((1930.0, 1056.0, 20.0, 24.0)), (1920.0, 0.0, 2560.0, 1440.0));
+        assert_eq!(x, 1940.0 - HUD_W / 2.0);
+        assert_eq!(y, 1056.0 - ICON_GAP - HUD_H);
+    }
+
+    fn a_hidden_status_item_falls_back_to_the_top_right_never_the_bottom() {
+        let screen = (0.0, 0.0, 1920.0, 1080.0);
+        let (x, y, w, h) = anchor(None, screen);
+        assert_eq!(x, 1920.0 - HUD_W - SCREEN_MARGIN);
+        assert_eq!(y, 1080.0 - 28.0 - ICON_GAP - HUD_H);
+        assert_eq!((w, h), (HUD_W, HUD_H));
+        // Top half of the screen, not the bottom band the old placement used.
+        assert!(y > 1080.0 / 2.0);
+    }
+
+    fn the_icon_moves_the_hud_to_the_icon_s_own_screen() {
+        let screens = [(0.0, 0.0, 1920.0, 1080.0), (1920.0, 0.0, 2560.0, 1440.0)];
+        let icon_on_second = (2500.0, 1416.0, 20.0, 24.0);
+        assert_eq!(screen_for(icon_on_second, &screens), Some(screens[1]));
+        let icon_on_main = (960.0, 1056.0, 20.0, 24.0);
+        assert_eq!(screen_for(icon_on_main, &screens), Some(screens[0]));
+        // An icon frame outside every screen still gets the first screen, never none.
+        assert_eq!(screen_for((-500.0, 5000.0, 10.0, 10.0), &screens), Some(screens[0]));
+        assert_eq!(screen_for(icon_on_main, &[]), None);
     }
 
     #[test]
