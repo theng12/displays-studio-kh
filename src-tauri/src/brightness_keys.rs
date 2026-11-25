@@ -148,6 +148,14 @@ const NX_KEY_STATE_UP: usize = 0x0B;
 
 const K_VK_F2: i64 = 120;
 const K_VK_F1: i64 = 122;
+// Alternate macOS brightness keyDown/keyUp virtual keycodes (per Lunar Hotkeys.swift / MediaKeyTap).
+const K_VK_BRIGHTNESS_UP: i64 = 144;
+const K_VK_BRIGHTNESS_DOWN: i64 = 145;
+
+fn should_reenable_tap(event_type: u32) -> bool {
+    event_type == K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT
+        || event_type == K_CG_EVENT_TAP_DISABLED_BY_USER_INPUT
+}
 
 fn has_shortcut_modifier(flags: u64) -> bool {
     flags & (K_CG_EVENT_FLAG_MASK_COMMAND | K_CG_EVENT_FLAG_MASK_CONTROL | K_CG_EVENT_FLAG_MASK_ALTERNATE) != 0
@@ -174,7 +182,7 @@ pub(crate) fn decode_media_data1(subtype: i16, data1: isize, flags: u64) -> Opti
     Some(BrightnessEvent { shape: KeyShape::Media, brighter, down })
 }
 
-/// Decodes plain F1/F2 `kCGEventKeyDown`/`kCGEventKeyUp` when standard function keys are enabled.
+/// Decodes plain F1/F2 (`122`/`120`) and hardware brightness (`145`/`144`) `kCGEventKeyDown`/`kCGEventKeyUp`.
 pub(crate) fn decode_function_key(event_type: u32, keycode: i64, flags: u64) -> Option<BrightnessEvent> {
     if has_shortcut_modifier(flags) {
         return None;
@@ -184,12 +192,14 @@ pub(crate) fn decode_function_key(event_type: u32, keycode: i64, flags: u64) -> 
         K_CG_EVENT_KEY_UP => false,
         _ => return None,
     };
-    let brighter = match keycode {
-        K_VK_F2 => true,
-        K_VK_F1 => false,
+    let (shape, brighter) = match keycode {
+        K_VK_F2 => (KeyShape::StandardFunction, true),
+        K_VK_F1 => (KeyShape::StandardFunction, false),
+        K_VK_BRIGHTNESS_UP => (KeyShape::Media, true),
+        K_VK_BRIGHTNESS_DOWN => (KeyShape::Media, false),
         _ => return None,
     };
-    Some(BrightnessEvent { shape: KeyShape::StandardFunction, brighter, down })
+    Some(BrightnessEvent { shape, brighter, down })
 }
 
 /// Extracts `(subtype, data1)` from a `kCGEventSystemDefined` `CGEventRef` via `NSEvent`.
@@ -391,20 +401,39 @@ pub fn apply(app: &AppHandle, enabled: bool) -> Status {
     Status { enabled: true, trusted: accessibility_trusted(), error: None }
 }
 
+static LAST_STEP: Mutex<Option<(u32, bool, std::time::Instant)>> = Mutex::new(None);
+
+/// Suppresses the duplicate event macOS can emit within ~30 ms when a single physical brightness
+/// key press arrives as both `kCGEventKeyDown` (144/145) and `kCGEventSystemDefined` (2/3).
+fn is_cross_shape_duplicate(event_type: u32, brighter: bool, now: std::time::Instant) -> bool {
+    let mut last = LAST_STEP.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let duplicate = matches!(
+        *last,
+        Some((prev_type, prev_brighter, prev_at))
+            if prev_type != event_type
+                && prev_brighter == brighter
+                && now.duration_since(prev_at) < std::time::Duration::from_millis(30)
+    );
+    if !duplicate {
+        *last = Some((event_type, brighter, now));
+    }
+    duplicate
+}
+
 extern "C" fn tap_callback(
     _proxy: *mut c_void,
     event_type: u32,
     event: *mut c_void,
     _refcon: *mut c_void,
 ) -> *mut c_void {
-    if event_type == K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT {
-        // macOS disables a slow tap so the keyboard cannot lock up. Re-arm it before returning.
+    if should_reenable_tap(event_type) {
+        // macOS disables a tap on timeout or user input so the keyboard cannot lock up. Re-arm it.
         if let Some(tap) = TAP.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref() {
             unsafe { CGEventTapEnable(tap.port, 1); }
         }
         return event;
     }
-    if event_type == K_CG_EVENT_TAP_DISABLED_BY_USER_INPUT || event.is_null() {
+    if event.is_null() {
         return event;
     }
     let Some(app) = APP.get() else { return event };
@@ -417,10 +446,12 @@ extern "C" fn tap_callback(
         TapAction::PassThrough => event,
         TapAction::SwallowOnly => std::ptr::null_mut(),
         TapAction::Step { target, brighter } => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                crate::run_brightness_step(&app, target, brighter).await;
-            });
+            if !is_cross_shape_duplicate(event_type, brighter, std::time::Instant::now()) {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::run_brightness_step(&app, target, brighter).await;
+                });
+            }
             std::ptr::null_mut()
         }
     }
@@ -677,7 +708,75 @@ mod tests {
     }
 
     #[test]
+    fn real_brightness_keydown_144_145_fails_on_0_1_13_and_moves_external_display_on_0_1_14() {
+        let up_down = keyboard_cgevent(K_VK_BRIGHTNESS_UP as u16, true, 0);
+        let up_release = keyboard_cgevent(K_VK_BRIGHTNESS_UP as u16, false, 0);
+        let down_down = keyboard_cgevent(K_VK_BRIGHTNESS_DOWN as u16, true, 0);
+
+        // Against 0.1.13: kCGEventKeyDown is never handled, so 144/145 produce no change.
+        assert_eq!(unsafe { v0_1_13_handler(K_CG_EVENT_KEY_DOWN, up_down) }, None);
+        assert_eq!(unsafe { v0_1_13_handler(K_CG_EVENT_KEY_DOWN, down_down) }, None);
+
+        // Against 0.1.14 with pointer on external display 2 (starting at 40/100):
+        let mut rig = FakeRig::new();
+        let a1 = unsafe { handle_cgevent(K_CG_EVENT_KEY_DOWN, up_down, KeysMove::Pointer, || Some((2, false))) };
+        assert_eq!(a1, TapAction::Step { target: TargetPath::ExternalDdc(2), brighter: true });
+        rig.apply(a1);
+        assert_eq!(rig.external_ddc, 45, "keycode 144 moves 40 -> 45");
+
+        let a2 = unsafe { handle_cgevent(K_CG_EVENT_KEY_UP, up_release, KeysMove::Pointer, || Some((2, false))) };
+        assert_eq!(a2, TapAction::SwallowOnly);
+        rig.apply(a2);
+        assert_eq!(rig.external_ddc, 45, "keycode 144 key-up must not double-step");
+
+        let a3 = unsafe { handle_cgevent(K_CG_EVENT_KEY_DOWN, down_down, KeysMove::Pointer, || Some((2, false))) };
+        assert_eq!(a3, TapAction::Step { target: TargetPath::ExternalDdc(2), brighter: false });
+        rig.apply(a3);
+        assert_eq!(rig.external_ddc, 40, "keycode 145 moves 45 -> 40");
+
+        // On built-in display, hardware brightness keycode 144 passes through natively.
+        let a_builtin = unsafe { handle_cgevent(K_CG_EVENT_KEY_DOWN, up_down, KeysMove::Pointer, || Some((1, true))) };
+        assert_eq!(a_builtin, TapAction::PassThrough);
+
+        unsafe {
+            CFRelease(up_down);
+            CFRelease(up_release);
+            CFRelease(down_down);
+        }
+    }
+
+    #[test]
+    fn cross_shape_duplicate_within_30ms_is_suppressed_while_repeats_pass() {
+        let t0 = std::time::Instant::now();
+        {
+            *LAST_STEP.lock().unwrap_or_else(|p| p.into_inner()) = None;
+        }
+        assert!(!is_cross_shape_duplicate(K_CG_EVENT_KEY_DOWN, true, t0));
+        // Mirror NX_SYSDEFINED arriving 5 ms after keyDown 144 for the same direction is suppressed.
+        assert!(is_cross_shape_duplicate(
+            K_CG_EVENT_SYSTEM_DEFINED,
+            true,
+            t0 + std::time::Duration::from_millis(5),
+        ));
+        // Same-shape key repeat is never suppressed.
+        assert!(!is_cross_shape_duplicate(
+            K_CG_EVENT_KEY_DOWN,
+            true,
+            t0 + std::time::Duration::from_millis(10),
+        ));
+        // Different shape after 40 ms is a fresh press.
+        assert!(!is_cross_shape_duplicate(
+            K_CG_EVENT_SYSTEM_DEFINED,
+            true,
+            t0 + std::time::Duration::from_millis(50),
+        ));
+    }
+
+    #[test]
     fn a_timed_out_tap_has_a_reenable_path() {
         assert_eq!(K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT, 0xffff_fffe);
+        assert!(should_reenable_tap(K_CG_EVENT_TAP_DISABLED_BY_TIMEOUT));
+        assert!(should_reenable_tap(K_CG_EVENT_TAP_DISABLED_BY_USER_INPUT));
+        assert!(!should_reenable_tap(K_CG_EVENT_KEY_DOWN));
     }
 }

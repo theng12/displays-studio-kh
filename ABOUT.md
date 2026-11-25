@@ -7,4 +7,7 @@ Displays Studio KH is a local macOS menu-bar app for external monitor brightness
 - `src-tauri/` — Tauri shell, tray, hotkeys, and Rust DDC/CI backend.
 - `ui-shell/` — local panel and release notes. No server, daemon, account, or network service.
 
-Version 0.1.0 is a local development build. There is no published or installed release.
+## Attribution
+
+- macOS brightness-key event-tap decoding (`NX_SYSDEFINED` subtype 8 `NSEvent.data1` and brightness keyDown keycodes `144`/`145`) is adapted from [alin23/Lunar](https://github.com/alin23/Lunar) and [alin23/MediaKeyTap](https://github.com/alin23/MediaKeyTap) (MIT License).
+- External monitor DDC/CI transport uses `ddc-macos` (MIT License, bundled in `src-tauri/vendor/ddc-macos`).
