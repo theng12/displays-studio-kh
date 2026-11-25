@@ -1,4 +1,4 @@
-# Receipt — Displays Studio KH 0.1.18
+not proven: HUD focus preservation (`hud-selftest` recorded UNMEASURED — session locked, no app in front); in-app screenshot of the native HUD under the menu-bar icon (UNMEASURED — native NSPanel tested offscreen so the owner's desktop is untouched); live visual/key check by the owner with 0.1.18 installed# Receipt — Displays Studio KH 0.1.18
 
 Adds the `update-under-load` gate proof covering the full maintenance-hold lifecycle (`held → paused → updating → resumed`, 1 s unsettled deadline naming the in-flight action, queued work refused cleanly while paused, quit-while-paused and relaunch without `DELETE`), enables the 6 HUD anchor unit tests in `src-tauri/src/hud.rs` that lacked `#[test]` in `0.1.17` (now 53/53 passing in `cargo-test`), and fixes the second-screen clamping assertion.
 
@@ -20,8 +20,8 @@ preflight: PREFLIGHT PASS (36ebc8155c2e, plugin 0.3.341)
 tag: 0.1.18 → annotated 1a14101b0f799c1186652cd0d3b3dbdae568e4ac, peeled eddccf0f32a968933e2719a814c1ba8df604c6f7, verified 2026-11-25 via `git ls-remote --tags origin`
 release: https://github.com/theng12/displays-studio-kh/releases/tag/0.1.18 (asset 8dcc97733002-Displays.Studio.KH-0.1.18.dmg)
 download: anonymous GET of the asset = HTTP 200, 4,786,948 B, sha256 8dcc97733002a10bf4bd6bfb4991bc6721e60ddf131d48f99598a834bc761503 — identical to the gate artifact
-feed readback: per-app appcast commit 99c412e pushed to origin/main (3 items: 0.1.18, 0.1.17, 0.1.16; local `appcast-verify.sh` PASS against anonymous download of 8dcc97733002-Displays.Studio.KH-0.1.18.dmg and `SUPublicEDKey` from `src-tauri/Info.plist`), live GitHub Pages https://theng12.github.io/displays-studio-kh/appcast.xml PENDING rebuild (still serving commit de5c850 / 0.1.17; manual `POST /pages/builds` returned HTTP 500 Internal Server Error); estate feed (`kh-releases/release.json` `.apps.displays-studio`) UNMEASURED for 0.1.18 (currently serves 0.1.16, sha256 705e03b4f5e5…, 4,768,647 B; handed to S001 for feed update)
-page state: appcast.xml committed at 99c412e on origin/main (SIGNATURE PASS locally), GitHub Pages rebuild pending; kh-releases/release.json .apps.displays-studio serves 0.1.16 pending S001 feed pass
+feed readback: per-app appcast https://theng12.github.io/displays-studio-kh/appcast.xml HTTP 200 (2,301 B, 3 items: 0.1.18, 0.1.17, 0.1.16; top item 0.1.18 with length="4786948" and enclosure at the 0.1.18 release URL; byte-identical to HEAD `appcast.xml` at commit `6ed9826` (sha256 3b0724f4ef33…), Pages build `6ed9826` status `built` after a forced `POST /pages/builds`), `appcast-verify.sh` PASS against anonymous download of 8dcc97733002-Displays.Studio.KH-0.1.18.dmg (4,786,948 B, sha256 8dcc97733002a10b…) and `SUPublicEDKey` from `src-tauri/Info.plist`; estate feed (`kh-releases/release.json` `.apps.displays-studio`) serves 0.1.18, published_at 2026-11-25T16:13:39.741Z, sha256 8dcc97733002…, 4,786,948 B — verified by S001 with `feed-verify.sh` PASS (Ed25519, 28,631 feed bytes)
+page state: appcast.xml serves 0.1.18 (SIGNATURE PASS over the release bytes); kh-releases/release.json .apps.displays-studio serves 0.1.18 (S001 feed pass, feed-verify PASS)
 dirty: false
 retired: "2026-11-25 0.1.16 dmg retired after 0.1.18 publish" → ~/Desktop/_trash/displays-studio-kh/ (with MANIFEST.md); also earlier incomplete-gate build retired as "2026-11-25 0.1.18 dmg from incomplete gate (launch INVALID)"; dist/ holds exact two DMGs (0.1.18 + 0.1.17)
 not proven: HUD focus preservation (`hud-selftest` recorded UNMEASURED — session locked, no app in front); GitHub Pages served readback of `appcast.xml` for 0.1.18 (pending GitHub Pages build after HTTP 500 on `POST /pages/builds`); estate feed row (`kh-releases/release.json` still 0.1.16 pending S001); in-app screenshot of the native HUD under the menu-bar icon (UNMEASURED — native NSPanel tested offscreen so the owner's desktop is untouched); live visual/key check by the owner with 0.1.18 installed
@@ -56,6 +56,10 @@ PASS  the route refuses a missing/wrong token, a GET, an unknown path and a brow
 PASS  quit while paused 120s (updating) and relaunched without DELETE -> resumed, new work running
 UPDATE-UNDER-LOAD PASS: held -> paused 120s (deadline 1s: safe=false, in_flight=1, unsettled=["Refreshing displays (action #1)"]) -> settled 4544ms (safe=true, queued "Saving a preset" refused while paused) -> updating (quit while paused, relaunched without DELETE) -> resumed (new work accepted; 1s idle expiry ok)
 ```
+
+## Pages deploy incident (resolved 2026-11-25)
+
+The `appcast.xml` item was committed at `99c412e`, but GitHub Pages refused every deploy for a while: the `pages-build-deployment` run `45650139671` failed at *Deploy to GitHub Pages* with `Creating Pages deployment failed … status: 500`, and both `POST /pages/builds` and `rerun-failed-jobs` returned HTTP 500. While that stood, the served appcast still topped out at 0.1.17. A later `POST /pages/builds` returned `201 Created`; build `6ed9826` reached `built` and the served file became byte-identical to HEAD. The repair was a rebuild, not an appcast edit.
 
 ## Offscreen HUD self-test (`scripts/hud-selftest.sh`, gate step `hud-selftest`)
 
