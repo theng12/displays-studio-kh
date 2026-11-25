@@ -35,6 +35,7 @@ mod sparkle {
 }
 mod hardware;
 mod hold;
+mod hud;
 mod hotkeys;
 #[cfg(all(feature = "webview-check", target_os = "macos"))]
 mod snapshot;
@@ -260,6 +261,15 @@ pub(crate) async fn run_brightness_step(
     if let Some(tray) = app.tray_by_id("displays") {
         let message = match &outcome { Ok(step) => step.message(), Err(reason) => reason };
         let _ = tray.set_tooltip(Some(message));
+    }
+    // The HUD answers "how far did that move?" where macOS draws no HUD of its own — external
+    // displays only, never on the built-in screen.
+    if let Ok(step) = &outcome {
+        if !hidden_check(app) {
+            if let Some((display, percent)) = hud::pick(&target, &step.brightness_changes(), hardware::pointer_display()) {
+                hud::show(app, display, percent);
+            }
+        }
     }
     let _ = app.emit_to("main", "brightness-step", outcome);
 }
@@ -671,6 +681,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
+        // Measured check of the HUD offscreen, for the release gate. Never draws on the screen.
+        if std::env::var("DISPLAYS_STUDIO_HUD_SELFTEST").ok().as_deref() == Some("1") {
+            hud::selftest(app.handle().clone());
+        }
         // The installer reads this URL from the signed feed and calls it before an update.
         hold::ensure_own_token();
         hold::start_server(app.handle().clone());

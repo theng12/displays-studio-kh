@@ -339,6 +339,15 @@ pub struct Step {
 
 impl Step {
     pub fn message(&self) -> &str { &self.message }
+    /// Every external display this step changed and its new brightness percentage — what the HUD
+    /// shows. Displays that failed or reported no brightness are absent, never guessed.
+    pub fn brightness_changes(&self) -> Vec<(String, u16)> {
+        self.changed
+            .iter()
+            .filter(|(_, level)| level.code == BRIGHTNESS)
+            .filter_map(|(display, level)| level.percent.map(|percent| (display.clone(), percent)))
+            .collect()
+    }
     /// A step that could not run, carried in the same shape so the panel shows one kind of answer.
     #[allow(dead_code)]
     pub fn failed(message: String) -> Step {

@@ -17,7 +17,10 @@ feed readback: per-app appcast https://theng12.github.io/displays-studio-kh/appc
 page state: appcast.xml serves 0.1.14 (SIGNATURE PASS); kh-releases/release.json .apps.displays-studio still serves 0.1.13 pending publisher pass
 dirty: false
 retired: "2026-11-25 0.1.14 dmg from pre-sanitize gate d3c03e4", "2026-11-25 0.1.14 dmg from superseded gate 02b9df72", "2026-11-25 0.1.14 dmg from incomplete gate 130708", and "2026-11-25 0.1.12 dmg retention" → ~/Desktop/_trash/displays-studio-kh/ (each with MANIFEST.md); dist/ holds exact two DMGs (0.1.14 + 0.1.13)
-not proven: estate feed row (`kh-releases/release.json` still 0.1.13 pending publisher pass), live physical F1/F2 key press on the owner's Mac (synthetic input forbidden), update-under-load
+owner test: 2026-11-25 — owner pressed F1 and F2 on his own keyboard against the external display under the pointer; both changed brightness (0.1.14 installed, pid 80721, binary sha256 eda803dd… identical to the released DMG)
+not proven: estate feed row (`kh-releases/release.json` still 0.1.13 pending publisher pass), update-under-load
+on-screen indicator: there is none in 0.1.14 — a press moves the display but shows nothing, so the amount moved is invisible; carried into 0.1.15
+known, not a bug: the install kept the 0.1.13 target setting ("Every external display"); the new pointer default only appears on a fresh install, and the owner has since chosen "the display under the pointer"
 ```
 
 ## Identity
@@ -74,7 +77,12 @@ An earlier gate attempt (`gate-20261125-130708`) exited 76 (`GATE INCOMPLETE`) b
   - Anonymous download verified: HTTP 200, `4,751,314` B, sha256 `f76e8d54deb009f3aaecc65d4e53b23f6fd928f7fd6577b88a685f1c47a6ba81`.
   - Per-app appcast (`appcast.xml`, commit `af111b2`): added `0.1.14` and dropped `0.1.11` to keep three items (`0.1.14`, `0.1.13`, `0.1.12`); read back from `https://theng12.github.io/displays-studio-kh/appcast.xml` (HTTP 200, `2,301` B) and verified with `appcast-verify.sh` against the anonymously downloaded DMG and `SUPublicEDKey` (**PASS**).
   - Local `dist/` retention: exact two DMGs (`Displays Studio KH-0.1.14.dmg` + `Displays Studio KH-0.1.13.dmg`); `0.1.12` retired with manifest.
+- **Owner test (2026-11-25): proven.** The owner pressed `F1` and `F2` on his own keyboard with the pointer over the external monitor, on the installed `0.1.14` (binary sha256 `eda803dd…`, identical to the released DMG): **both keys changed brightness.** No synthetic input was used — the press was his.
 - **Remaining:**
   - Estate feed row (`kh-releases/release.json` `.apps.displays-studio`) still serves `0.1.13` pending the publisher pass.
-  - Owner's live physical F1/F2 key press check on the display under the pointer after updating to `0.1.14`.
+  - No on-screen indicator: a press changes the monitor but shows nothing, so how far it moved is invisible. Carried into `0.1.15`.
   - Update-under-load proof.
+
+## Known, not a bug: the target setting carries over
+
+The install kept the setting saved by `0.1.13` ("Every external display"). The new pointer default applies to a fresh install, not to an upgrade — an upgrade never overwrites a person's own choice. The owner has since selected "The display under the pointer".
