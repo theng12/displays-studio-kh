@@ -1,0 +1,12 @@
+HUD SELFTEST: frame on a 1920x1080 display = 874,96 172x44 — bottom-centre, 96 above the bottom edge: ok
+update hold listening on http://127.0.0.1:8650/api/maintenance/hold
+held new work for an update (paused 120 s)
+update hold: safe in 0 ms (ceiling 20 s, pause 120 s, 0 in flight)
+[khsparkle] hold taken; starting Sparkle
+HUD SELFTEST: frontmost before the HUD = Some("com.khupdater.agent")
+HUD SELFTEST: shown offscreen — visible=true key=false main=false front=Some("com.khupdater.agent") (before=Some("com.khupdater.agent")) focus=unchanged
+HUD SELFTEST: second press 1000 ms into the first fade — still visible=true
+HUD SELFTEST: hidden after the last press, fade 200 ms — visible_now=false
+HUD SELFTEST: focus unchanged
+HUD SELFTEST: PASS
+hud-selftest: PASS
