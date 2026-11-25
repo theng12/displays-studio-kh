@@ -1,0 +1,10 @@
+HUD SELFTEST: anchor under a menu-bar icon = 874,1006 172x44 — centred under the icon, 6 below it: ok
+HUD SELFTEST: before layout — icon None, HUD would fall back to 1740,1002
+HUD SELFTEST: frontmost before the HUD = Some("com.anthropic.claudefordesktop")
+HUD SELFTEST: live anchor — icon 1057,1050 34x30, HUD 988,1000 172x44, centred=true under=true
+HUD SELFTEST: shown offscreen — visible=true key=false main=false front=Some("com.anthropic.claudefordesktop") (before=Some("com.anthropic.claudefordesktop")) focus=unchanged
+HUD SELFTEST: second press 1000 ms into the first fade — still visible=true
+HUD SELFTEST: hidden after the last press, fade 200 ms — visible_now=false
+HUD SELFTEST: focus unchanged
+HUD SELFTEST: PASS
+hud-selftest: PASS
