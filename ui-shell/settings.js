@@ -36,6 +36,8 @@ function render() {
   $('#brightness-keys').disabled = false;
   $('#login').checked = info.login.enabled;
   $('#login').disabled = false;
+  $('#hud').checked = info.hud;
+  $('#hud').disabled = false;
   $('#accessibility').hidden = info.keys.trusted;
   $('#follow-pointer').checked = info.follow !== 'all' && info.follow !== 'selected';
   $('#follow-all').checked = info.follow === 'all';
@@ -182,6 +184,21 @@ $('#brightness-keys').addEventListener('change', async () => {
     $('#brightness-keys').disabled = false;
   }
 });
+$('#hud').addEventListener('change', async () => {
+  const requested = $('#hud').checked;
+  $('#hud').disabled = true;
+  try {
+    const setting = await invoke('set_hud', { enabled: requested });
+    $('#hud').checked = setting.hud;
+    status(`Brightness bar ${setting.hud ? 'on' : 'off'}.`, false);
+  } catch (error) {
+    $('#hud').checked = !requested;
+    status(String(error), true);
+  } finally {
+    $('#hud').disabled = false;
+  }
+});
+
 $('#login').addEventListener('change', async () => {
   const requested = $('#login').checked;
   $('#login').disabled = true;

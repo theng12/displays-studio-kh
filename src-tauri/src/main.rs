@@ -265,7 +265,7 @@ pub(crate) async fn run_brightness_step(
     // The HUD answers "how far did that move?" where macOS draws no HUD of its own — external
     // displays only, never on the built-in screen.
     if let Ok(step) = &outcome {
-        if !hidden_check(app) {
+        if !hidden_check(app) && pref_on(app, "hud") {
             if let Some((display, percent)) = hud::pick(&target, &step.brightness_changes(), hardware::pointer_display()) {
                 hud::show(app, display, percent);
             }
@@ -407,6 +407,7 @@ struct SettingsInfo {
     login: login::Status,
     follow: String,
     selected: String,
+    hud: bool,
     hotkeys: Vec<hotkeys::Hotkey>,
 }
 
@@ -420,6 +421,7 @@ fn settings_info(app: AppHandle) -> SettingsInfo {
         login: login::Status { enabled: login::enabled(), error: None },
         follow: keys_follow(&app),
         selected: pref_text(&app, "selected-display", ""),
+        hud: pref_on(&app, "hud"),
         hotkeys: hotkeys::load(&hotkeys_path(&app).unwrap_or_default()),
     }
 }
@@ -438,6 +440,12 @@ fn set_keys_follow(app: AppHandle, follow: String, display: String) -> Result<Se
     }
     save_text(&app, "keys-follow", &follow)?;
     save_text(&app, "selected-display", display.trim())?;
+    Ok(settings_info(app))
+}
+
+#[tauri::command]
+fn set_hud(app: AppHandle, enabled: bool) -> Result<SettingsInfo, String> {
+    save_pref(&app, "hud", enabled)?;
     Ok(settings_info(app))
 }
 
@@ -675,9 +683,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }).build());
     #[cfg(not(feature = "webview-check"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, fit_panel]);
+    let builder = builder.invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hud, set_hotkey, clear_hotkey, open_settings_window, fit_panel]);
     #[cfg(feature = "webview-check")]
-    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hotkey, clear_hotkey, open_settings_window, fit_panel, check_result]);
+    let builder = builder.manage(Check(test)).invoke_handler(tauri::generate_handler![scan, set_level, set_all, panel_info, set_shortcuts, set_login, set_brightness_keys, open_accessibility_settings, close_panel, presets_list, preset_save, preset_apply, preset_delete, settings_info, set_keys_follow, set_hud, set_hotkey, clear_hotkey, open_settings_window, fit_panel, check_result]);
 
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);

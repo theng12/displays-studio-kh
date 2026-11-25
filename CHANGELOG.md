@@ -4,6 +4,7 @@
 
 - Pressing F1 or F2 now shows a small brightness bar at the bottom of the monitor it changed, with the new percentage, and fades away after about a second — the same idea as the volume display, for monitors macOS draws nothing for.
 - It appears only on external monitors, never on the Mac's own screen where macOS already shows brightness, and it never takes focus, never becomes the active window and never gets in the way of the mouse.
+- Settings has a switch for the bar, on by default, if you would rather have nothing appear.
 
 ## 0.1.14 — 2026-11-25
 

@@ -13,10 +13,10 @@ use std::{
     time::Duration,
 };
 
-use objc2::{msg_send, rc::Retained, MainThreadMarker};
+use objc2::{define_class, msg_send, rc::Retained, MainThreadMarker};
 use objc2_app_kit::{
-    NSAnimationContext, NSApplication, NSColor, NSFont, NSLevelIndicator, NSLevelIndicatorStyle, NSPanel, NSTextField,
-    NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
+    NSAnimationContext, NSColor, NSFont, NSLevelIndicator, NSLevelIndicatorStyle, NSPanel, NSTextField,
+    NSVisualEffectBlendingMode, NSWorkspace, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
@@ -69,8 +69,32 @@ thread_local! {
 /// Bumped by every press, so an older fade cannot hide a newer HUD.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
-/// What the offscreen self-test measured: visible, key, main, app activation unchanged.
-static SELFTEST: [AtomicBool; 4] = [const { AtomicBool::new(false) }; 4];
+/// What the offscreen self-test measured: visible, key, main, app active before and after.
+static SELFTEST: [AtomicBool; 6] = [const { AtomicBool::new(false) }; 6];
+
+/// The app in front before the HUD was shown, so the self-test can prove it did not change.
+static FRONT_BEFORE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// The panel refuses key and main outright. A plain `NSPanel` still lets macOS activate the app when
+/// it is ordered front, which would pull focus away from whatever the person is typing in; overriding
+/// these two is what makes an accessory app's HUD appear without stealing activation.
+#[derive(Default)]
+struct HudIvars;
+
+define_class!(
+    #[unsafe(super(NSPanel))]
+    #[name = "KHHudPanel"]
+    #[ivars = HudIvars]
+    struct HudPanel;
+
+    impl HudPanel {
+        #[unsafe(method(canBecomeKeyWindow))]
+        fn can_become_key_window(&self) -> bool { false }
+
+        #[unsafe(method(canBecomeMainWindow))]
+        fn can_become_main_window(&self) -> bool { false }
+    }
+);
 
 /// Shows the HUD on `display` at `percent`. Never activates the app and never takes focus.
 pub(crate) fn show(app: &AppHandle, display: u32, percent: u16) {
@@ -85,18 +109,7 @@ pub(crate) fn show(app: &AppHandle, display: u32, percent: u16) {
 
 fn show_at(app: &AppHandle, frame: (f64, f64, f64, f64), percent: u16) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    let (x, y, w, h) = frame;
-    let _ = app.run_on_main_thread(move || {
-        HUD.with(|slot| {
-            let mut slot = slot.borrow_mut();
-            let hud = slot.get_or_insert_with(build);
-            hud.panel.setFrame_display(NSRect::new(NSPoint::new(x, y), NSSize::new(w, h)), false);
-            hud.bar.setDoubleValue(f64::from(percent));
-            hud.label.setStringValue(&NSString::from_str(&format!("{percent}%")));
-            hud.panel.setAlphaValue(1.0);
-            hud.panel.orderFrontRegardless();
-        });
-    });
+    let _ = app.run_on_main_thread(move || place_and_show(frame, percent));
     // One short-lived thread per press: sleep, then fade on the main thread. No polling, no timer
     // that outlives the press.
     let handle = app.clone();
@@ -115,19 +128,38 @@ fn show_at(app: &AppHandle, frame: (f64, f64, f64, f64), percent: u16) {
     });
 }
 
+/// Places and orders the panel front. Must run on the main thread; called both by a key press and
+/// by the offscreen self-test.
+fn place_and_show(frame: (f64, f64, f64, f64), percent: u16) {
+    let (x, y, w, h) = frame;
+    HUD.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let hud = slot.get_or_insert_with(build);
+        hud.panel.setFrame_display(NSRect::new(NSPoint::new(x, y), NSSize::new(w, h)), false);
+        hud.bar.setDoubleValue(f64::from(percent));
+        hud.label.setStringValue(&NSString::from_str(&format!("{percent}%")));
+        hud.panel.setAlphaValue(1.0);
+        hud.panel.orderFrontRegardless();
+    });
+}
+
 fn build() -> Hud {
     let mtm = MainThreadMarker::new().expect("the HUD is built on the main thread");
     let rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(HUD_W, HUD_H));
-    let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
-        mtm.alloc(),
-        rect,
-        NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
-        objc2_app_kit::NSBackingStoreType::Buffered,
-        false,
-    );
+    let mask = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
+    let panel: Retained<HudPanel> = unsafe {
+        msg_send![
+            mtm.alloc::<HudPanel>(),
+            initWithContentRect: rect,
+            styleMask: mask,
+            backing: objc2_app_kit::NSBackingStoreType::Buffered,
+            defer: false
+        ]
+    };
+    let panel: Retained<NSPanel> = Retained::into_super(panel);
     panel.setFloatingPanel(true);
     panel.setBecomesKeyOnlyIfNeeded(true);
-    panel.setLevel(objc2_app_kit::NSStatusWindowLevel);
+    panel.setLevel(objc2_app_kit::NSFloatingWindowLevel);
     panel.setOpaque(false);
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
     panel.setHasShadow(true);
@@ -182,7 +214,7 @@ fn fade_and_hide(panel: &Retained<NSPanel>) {
 /// Builds the panel offscreen — never on the owner's screen — and measures what the HUD actually
 /// does: it appears, stays out of key and main, leaves the app inactive, and hides itself again.
 pub(crate) fn selftest(app: AppHandle) {
-    let Some(mtm) = MainThreadMarker::new() else {
+    let Some(_mtm) = MainThreadMarker::new() else {
         println!("HUD SELFTEST FAIL: not on the main thread");
         std::process::exit(1);
     };
@@ -192,36 +224,64 @@ pub(crate) fn selftest(app: AppHandle) {
         && w == HUD_W && h == HUD_H;
     println!("HUD SELFTEST: frame on a 1920x1080 display = {x:.0},{y:.0} {w:.0}x{h:.0} — bottom-centre, {HUD_BOTTOM_MARGIN:.0} above the bottom edge: {}", if frame_ok { "ok" } else { "FAIL" });
 
-    let active_before = NSApplication::sharedApplication(mtm).isActive();
-    let early = app.clone();
-    let late = app.clone();
-    show_at(&app, (-6000.0, -6000.0, HUD_W, HUD_H), 50);
-
+    let showing = app.clone();
+    let reading = app.clone();
+    let finishing = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(150));
-        let _ = early.run_on_main_thread(move || {
+        // The app finishes launching first: anything from startup is not the HUD's doing.
+        std::thread::sleep(Duration::from_millis(1200));
+        let _ = showing.run_on_main_thread(move || {
             let Some(mtm) = MainThreadMarker::new() else { return };
+            *FRONT_BEFORE.lock().unwrap() = frontmost_bundle(mtm);
+            println!("HUD SELFTEST: frontmost before the HUD = {:?}", FRONT_BEFORE.lock().unwrap());
+            show_at(&app, (-6000.0, -6000.0, HUD_W, HUD_H), 50);
+        });
+        std::thread::sleep(Duration::from_millis(300));
+        let _ = reading.run_on_main_thread(move || {
+            let Some(mtm) = MainThreadMarker::new() else { return };
+            let front_after = frontmost_bundle(mtm);
+            let front_before = FRONT_BEFORE.lock().unwrap().clone();
             HUD.with(|slot| {
                 let slot = slot.borrow();
                 let Some(hud) = slot.as_ref() else { return };
-                let active_after = NSApplication::sharedApplication(mtm).isActive();
                 let (visible, key, main) = (hud.panel.isVisible(), hud.panel.isKeyWindow(), hud.panel.isMainWindow());
-                for (index, value) in [(0, visible), (1, key), (2, main), (3, active_after == active_before)].into_iter() {
-                    SELFTEST[index].store(value, Ordering::SeqCst);
-                }
-                println!("HUD SELFTEST: shown offscreen at -6000,-6000 — visible={visible} key={key} main={main} app_active={active_after} (before={active_before})");
+                SELFTEST[0].store(visible, Ordering::SeqCst);
+                SELFTEST[1].store(key, Ordering::SeqCst);
+                SELFTEST[2].store(main, Ordering::SeqCst);
+                // A locked session (or no app of the person's in front) cannot answer "did focus move":
+                // record it UNMEASURED rather than claiming either answer.
+                let measurable = matches!(front_before.as_deref(), Some(id) if id != "com.apple.loginwindow" && id != OUR_BUNDLE_ID);
+                SELFTEST[3].store(measurable && front_after != front_before, Ordering::SeqCst);
+                SELFTEST[4].store(measurable, Ordering::SeqCst);
+                SELFTEST[5].store(front_after != Some(OUR_BUNDLE_ID.to_string()), Ordering::SeqCst);
+                println!(
+                    "HUD SELFTEST: shown offscreen — visible={visible} key={key} main={main} front={front_after:?} (before={front_before:?}) focus={}",
+                    if !measurable { "UNMEASURED (no real app in front — session locked?)" }
+                    else if front_after != front_before { "MOVED" } else { "unchanged" }
+                );
             });
         });
         std::thread::sleep(VISIBLE + Duration::from_millis(500));
-        let _ = late.run_on_main_thread(move || {
+        let _ = finishing.run_on_main_thread(move || {
             let hidden = HUD.with(|slot| slot.borrow().as_ref().map(|hud| !hud.panel.isVisible()).unwrap_or(false));
             let ok = |index: usize| SELFTEST[index].load(Ordering::SeqCst);
-            let pass = frame_ok && ok(0) && !ok(1) && !ok(2) && ok(3) && hidden;
+            let focus_ok = !ok(4) || !ok(3);
+            let pass = frame_ok && ok(0) && !ok(1) && !ok(2) && focus_ok && hidden;
             println!("HUD SELFTEST: hidden after {} ms, fade {:.0} ms — visible_now={}", VISIBLE.as_millis() + 500, FADE * 1000.0, !hidden);
+            println!("HUD SELFTEST: focus {}", if !ok(4) { "UNMEASURED" } else if ok(3) { "FAIL (moved)" } else { "unchanged" });
             println!("HUD SELFTEST: {}", if pass { "PASS" } else { "FAIL" });
             std::process::exit(if pass { 0 } else { 1 });
         });
     });
+}
+
+const OUR_BUNDLE_ID: &str = "app.displaysstudiokh.desktop";
+
+/// The bundle id of the app in front — what showing the HUD must never change.
+fn frontmost_bundle(mtm: MainThreadMarker) -> Option<String> {
+    let workspace = NSWorkspace::sharedWorkspace();
+    let _ = mtm;
+    workspace.frontmostApplication().and_then(|app| app.bundleIdentifier()).map(|id| id.to_string())
 }
 
 #[cfg(test)]

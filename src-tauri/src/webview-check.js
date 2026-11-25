@@ -40,7 +40,12 @@
     assert(allMode.follow === 'all', 'The keys-follow choice did not switch to all');
     const back = await invoke('set_keys_follow', { follow: 'pointer', display: '' });
     assert(back.follow === 'pointer', 'The keys-follow choice did not go back to pointer');
-    result.settings_screen = { follow: settingsInfo.follow, hotkeys: settingsInfo.hotkeys.length };
+    assert(settingsInfo.hud === true, 'the brightness bar did not default to on');
+    const hudOff = await invoke('set_hud', { enabled: false });
+    assert(hudOff.hud === false, 'the brightness bar switch did not turn off');
+    const hudOn = await invoke('set_hud', { enabled: true });
+    assert(hudOn.hud === true, 'the brightness bar switch did not turn back on');
+    result.settings_screen = { follow: settingsInfo.follow, hotkeys: settingsInfo.hotkeys.length, hud: hudOn.hud };
     assert(document.querySelector('#intro'), 'The first-run explanation is missing');
     // Saved presets: the controls exist, and the backend really remembers and forgets a name
     // (read-only on the hardware — saving captures what the monitors report).
