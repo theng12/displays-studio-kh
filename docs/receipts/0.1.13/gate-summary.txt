@@ -1,5 +1,5 @@
 identity[before-wait] branch=main head=764bc5c22 dirty=0
-runner: gate-run.sh f05b010c16e5 at /Users/vengtheng/Developer/_orchestra/tools/gate-run.sh
+runner: gate-run.sh f05b010c16e5 at $HOME/Developer/_orchestra/tools/gate-run.sh
 machine: 12427 MB available, 6071.06 of 7168.00 MB swap used, 7055 GB free
 lane re-arm 1 at 18:51:55 (rc=2)
 lane acquired: 
@@ -20,13 +20,13 @@ step release-build :: bash -c 'cd src-tauri && cargo build --offline --locked --
   ok release-build
 step package :: bash scripts/build-mac.sh
   ok package
-step screenshots :: bash -c 'bash scripts/capture-screenshots.sh && bash /Users/vengtheng/Developer/_orchestra/tools/check-app-screenshots.sh /Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/app'
+step screenshots :: bash -c 'bash scripts/capture-screenshots.sh && bash $HOME/Developer/_orchestra/tools/check-app-screenshots.sh $HOME/Developer/_orchestra/developer-utilities/displays-studio-kh/app'
   ok screenshots
 step entitlement :: bash scripts/check-entitlement.sh dist/*0.1.13.dmg
   ok entitlement
 step launch :: bash scripts/launch-gate.sh dist/*0.1.13.dmg "Displays Studio KH"
   ok launch
-step scan :: bash /Users/vengtheng/Developer/_orchestra/tools/pinned/studio-gate-76dbf7aa09f5109b.sh "/Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/app"
+step scan :: bash $HOME/Developer/_orchestra/tools/pinned/studio-gate-76dbf7aa09f5109b.sh "$HOME/Developer/_orchestra/developer-utilities/displays-studio-kh/app"
   ok scan
 step idle-launch :: bash scripts/idle-launch.sh
   ok idle-launch
@@ -37,7 +37,7 @@ step commit-identity :: check-commit-identity.sh
 step idle-footprint :: check-idle-footprint.sh Displays Studio KH.app/Contents/MacOS/displays-studio-kh 200 20
   ok idle-footprint: idle footprint: pid 77014 = 76 MB after 20s, -2 MB while idle (ceiling 200 MB)
 artifact dist/Displays Studio KH-0.1.13.dmg 4726035 bytes sha256=54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adffe100560c dev=16777229 ino=24178549 size=4726035 mtime=1795522723.366270355 ctime=1795522727.009516372
-step scan-dmg :: /Users/vengtheng/Developer/_orchestra/developer-handoff/kh-mirror-tools/scan-dmg.sh Displays Studio KH-0.1.13.dmg
+step scan-dmg :: $HOME/Developer/_orchestra/developer-handoff/kh-mirror-tools/scan-dmg.sh Displays Studio KH-0.1.13.dmg
 == contents ==
 
 /Displays Studio KH.app
@@ -63,4 +63,4 @@ scan-receipt {"sha256": "54d97a0b119c851df13a69cc619b39491eb820d55789c1fa9894adf
 == done: dist/Displays Studio KH-0.1.13.dmg ==
 scan-dmg: clean
 GATE PASS displays-studio 764bc5c220976c35513d5d8db901b42b4b1e3ab5 2026-11-24T12:19:35Z
-evidence /Users/vengtheng/Developer/_orchestra/developer-utilities/displays-studio-kh/lead/gate-20261124-182218-51430
+evidence $HOME/Developer/_orchestra/developer-utilities/displays-studio-kh/lead/gate-20261124-182218-51430
