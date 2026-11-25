@@ -1,0 +1,14 @@
+update hold listening on http://127.0.0.1:8650/api/maintenance/hold
+HUD SELFTEST: anchor under a menu-bar icon = 874,1006 172x44 — centred under the icon, 6 below it: ok
+HUD SELFTEST: before layout — icon None, HUD would fall back to 1740,1002
+held new work for an update (paused 120 s)
+update hold: safe in 0 ms (ceiling 20 s, pause 120 s, 0 in flight) — ready for updating
+[khsparkle] hold taken; starting Sparkle
+HUD SELFTEST: frontmost before the HUD = Some("com.apple.loginwindow")
+HUD SELFTEST: live anchor — icon 1006,1050 34x30, HUD 937,1000 172x44, centred=true under=true
+HUD SELFTEST: shown offscreen — visible=true key=false main=false front=Some("com.apple.loginwindow") (before=Some("com.apple.loginwindow")) focus=UNMEASURED (no real app in front — session locked?)
+HUD SELFTEST: second press 1000 ms into the first fade — still visible=true
+HUD SELFTEST: hidden after the last press, fade 200 ms — visible_now=false
+HUD SELFTEST: focus UNMEASURED
+HUD SELFTEST: PASS
+hud-selftest: PASS

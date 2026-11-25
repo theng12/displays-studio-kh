@@ -1,0 +1,24 @@
+Run folder: /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//displays-studio-hold.hpyhLA
+PASS  held -> paused 120s over live work; safe=false, unsettled=["Refreshing displays (action #1)"]; client round trip 1058 ms
+PASS  real work settled inside the bound (4544 ms); answer safe, ready for updating, nothing cancelled
+PASS  in-flight refresh completed; queued follow-up job ("Saving a preset") refused while paused and explained in panel UI
+PASS  an abandoned hold expired by itself after pause_s
+PASS  the route refuses a missing/wrong token, a GET, an unknown path and a browser origin
+  log: held new work for an update (paused 120 s)
+  log: update hold: not safe in 1008 ms (ceiling 1 s, pause 120 s, 1 in flight) — still in flight: Refreshing displays (action #1)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 120 s)
+  log: update hold: safe in 4489 ms (ceiling 20 s, pause 120 s, 0 in flight) — ready for updating
+  log: update hold: refused "Saving a preset" while paused (115 s left)
+  log: update hold: refused "Saving a preset" while paused (115 s left)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 1 s)
+  log: update hold: safe in 1 ms (ceiling 1 s, pause 1 s, 0 in flight) — ready for updating
+  log: the update pause expired; new work is accepted again
+  log: held new work for an update (paused 120 s)
+  log: update hold: safe in 0 ms (ceiling 1 s, pause 120 s, 0 in flight) — ready for updating
+tests/hold.sh: line 57: 57366 Terminated: 15          "$BIN" --test-mode "$1" >> "$LOG" 2>&1
+PASS  quit while paused 120s (updating) and relaunched without DELETE -> resumed, new work running
+tests/hold.sh: line 57: 57881 Terminated: 15          "$BIN" --test-mode "$1" >> "$LOG" 2>&1
+UPDATE-UNDER-LOAD PASS: held -> paused 120s (deadline 1s: safe=false, in_flight=1, unsettled=["Refreshing displays (action #1)"]) -> settled 4544ms (safe=true, queued "Saving a preset" refused while paused) -> updating (quit while paused, relaunched without DELETE) -> resumed (new work accepted; 1s idle expiry ok)
+All hold checks passed in /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//displays-studio-hold.hpyhLA
