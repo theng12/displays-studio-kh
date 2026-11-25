@@ -198,18 +198,70 @@ fn save_text(app: &AppHandle, name: &str, value: &str) -> Result<(), String> {
     })
 }
 
-/// "all" (every external display) or "selected" (only the one chosen in Settings).
+/// "pointer" (the display under the mouse), "all" (every external display) or "selected".
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KeysMove { Pointer, All, Selected }
+
 fn keys_follow(app: &AppHandle) -> String {
-    pref_text(app, "keys-follow", "all")
+    pref_text(app, "keys-follow", "pointer")
 }
 
-/// The displays the global keys and F1/F2 move: every one, or the selected one.
-pub(crate) fn step_follow(app: &AppHandle, brighter: bool) -> Result<hardware::Step, String> {
-    let selected = pref_text(app, "selected-display", "");
-    if keys_follow(app) == "selected" && !selected.is_empty() {
-        return hardware::step_on(&selected, brighter);
+pub(crate) fn keys_move(app: &AppHandle) -> KeysMove {
+    match keys_follow(app).as_str() {
+        "all" => KeysMove::All,
+        "selected" => KeysMove::Selected,
+        _ => KeysMove::Pointer,
     }
-    hardware::step(brighter)
+}
+
+fn step_selected(app: &AppHandle, brighter: bool) -> Result<hardware::Step, String> {
+    let selected = pref_text(app, "selected-display", "");
+    if selected.is_empty() { hardware::step(brighter) }
+    else { hardware::step_on(&selected, brighter) }
+}
+
+/// The displays the global keys and F1/F2 move: the one under the pointer, every one, or the
+/// selected one. Built-in displays use macOS's DisplayServices path; external displays use DDC/CI.
+pub(crate) fn step_follow(app: &AppHandle, brighter: bool) -> Result<hardware::Step, String> {
+    match keys_move(app) {
+        KeysMove::Pointer => match hardware::pointer_display() {
+            Some(display) if hardware::is_builtin(display) => hardware::step_builtin(display, brighter),
+            Some(display) => hardware::step_id(display, brighter),
+            None => Err("Move the pointer over the display you want to change.".into()),
+        },
+        KeysMove::All => hardware::step(brighter),
+        KeysMove::Selected => step_selected(app, brighter),
+    }
+}
+
+/// Runs a tap-triggered brightness step through the shared DDC bus lock & update hold, updates
+/// the tray tooltip, and emits the Result<Step, String> shape the panel expects.
+pub(crate) async fn run_brightness_step(
+    app: &AppHandle,
+    target: brightness_keys::TargetPath,
+    brighter: bool,
+) {
+    let handle = app.clone();
+    let outcome = match target {
+        brightness_keys::TargetPath::PassThrough => return,
+        brightness_keys::TargetPath::BuiltIn(display) => {
+            ddc(app, "Brightness keys", move || hardware::step_builtin(display, brighter)).await
+        }
+        brightness_keys::TargetPath::ExternalDdc(display) => {
+            ddc(app, "Brightness keys", move || hardware::step_id(display, brighter)).await
+        }
+        brightness_keys::TargetPath::AllExternalDdc => {
+            ddc(app, "Brightness keys", move || hardware::step(brighter)).await
+        }
+        brightness_keys::TargetPath::SelectedExternalDdc => {
+            ddc(app, "Brightness keys", move || step_selected(&handle, brighter)).await
+        }
+    };
+    if let Some(tray) = app.tray_by_id("displays") {
+        let message = match &outcome { Ok(step) => step.message(), Err(reason) => reason };
+        let _ = tray.set_tooltip(Some(message));
+    }
+    let _ = app.emit_to("main", "brightness-step", outcome);
 }
 
 /// Registers the global pair (when it is on) and every per-display chord. One registration point, so
@@ -238,6 +290,27 @@ fn register_shortcuts(app: &AppHandle, enabled: bool) -> ShortcutStatus {
     ShortcutStatus { enabled: enabled && error.is_none(), error }
 }
 
+/// If macOS has just granted Accessibility, install the tap without a restart.
+fn ensure_keys(app: &AppHandle) {
+    if hidden_check(app) { return; }
+    let state = app.state::<Keys>();
+    let mut status = state.0.lock().unwrap();
+    if pref_on(app, "brightness-keys") && !status.enabled {
+        *status = brightness_keys::apply(app, true);
+    }
+}
+
+pub(crate) fn log_line(app: &AppHandle, line: &str) {
+    // The hidden check never writes into the owner's Library/Logs.
+    #[cfg(feature = "webview-check")]
+    if hidden_check(app) { return; }
+    let Ok(dir) = app.path().app_log_dir() else { return };
+    if std::fs::create_dir_all(&dir).is_err() { return; }
+    let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("brightness-keys.log")) else { return; };
+    use std::io::Write;
+    let _ = writeln!(file, "{line}");
+}
+
 /// The panel is a dropdown, not a scroller: it grows to fit the displays it lists (owner bug 2). The
 /// hidden check measures the fixed 372×668 size, so it is left alone there.
 #[tauri::command]
@@ -258,6 +331,7 @@ fn fit_panel(app: AppHandle, window: tauri::WebviewWindow, height: f64) {
 
 #[tauri::command]
 fn panel_info(app: AppHandle) -> (String, ShortcutStatus, login::Status, brightness_keys::Status, &'static str) {
+    ensure_keys(&app);
     (
         app.package_info().version.to_string(),
         app.state::<Shortcuts>().0.lock().unwrap().clone(),
@@ -328,6 +402,7 @@ struct SettingsInfo {
 
 #[tauri::command]
 fn settings_info(app: AppHandle) -> SettingsInfo {
+    ensure_keys(&app);
     SettingsInfo {
         version: app.package_info().version.to_string(),
         shortcuts: app.state::<Shortcuts>().0.lock().unwrap().clone(),
@@ -348,8 +423,8 @@ fn re_register(app: &AppHandle) {
 
 #[tauri::command]
 fn set_keys_follow(app: AppHandle, follow: String, display: String) -> Result<SettingsInfo, String> {
-    if follow != "all" && follow != "selected" {
-        return Err("Choose whether the keys move every display or the selected one.".into());
+    if follow != "pointer" && follow != "all" && follow != "selected" {
+        return Err("Choose whether the keys move the display under the pointer, every display, or the selected one.".into());
     }
     save_text(&app, "keys-follow", &follow)?;
     save_text(&app, "selected-display", display.trim())?;
@@ -449,10 +524,9 @@ fn create_panel(app: &AppHandle, hidden: bool) -> tauri::Result<tauri::WebviewWi
         .minimizable(false).resizable(false)
         .visible(!hidden).focused(!hidden)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
-    #[cfg(feature = "webview-check")]
     #[cfg(all(feature = "webview-check", target_os = "macos"))]
     let capturing = app.state::<Snapshot>().0.is_some();
-    #[cfg(not(all(feature = "webview-check", target_os = "macos")))]
+    #[cfg(all(feature = "webview-check", not(target_os = "macos")))]
     let capturing = false;
     #[cfg(feature = "webview-check")]
     let builder = if let Some(dir) = app.state::<Check>().0.as_ref() {
@@ -494,6 +568,7 @@ fn show_panel(app: &AppHandle) {
 
 /// Opens the panel, optionally anchored just under the tray icon (menu-bar dropdown).
 fn show_panel_at(app: &AppHandle, under_icon: Option<(f64, f64)>) {
+    ensure_keys(app);
     let window = match app.get_webview_window("main") {
         Some(window) => window,
         None => match create_panel(app, false) {

@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.1.14",
+    "date": "2026-11-25",
+    "items": [
+      "The Mac's F1 and F2 brightness keys now actually change monitor brightness, whether your keyboard sends them as brightness keys or as standard F1 and F2 function keys.",
+      "Pressing F1 or F2 changes the display under the pointer by default, and still lets you choose every display or one selected display in Settings.",
+      "External monitors change through the monitor's own brightness control, while a built-in Mac screen stays on macOS's built-in brightness path.",
+      "If Accessibility permission is off, the app shows \"Brightness keys need Accessibility\" with a button that opens the right Settings pane, and writes one note per launch instead of failing silently."
+    ]
+  },
+  {
     "version": "0.1.13",
     "date": "2026-11-24",
     "items": [

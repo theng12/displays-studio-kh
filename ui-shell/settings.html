@@ -18,9 +18,10 @@
       <h2 id="keys-title">Brightness keys</h2>
       <label><input id="shortcuts" type="checkbox" disabled> Use <kbd>⌃⇧]</kbd> and <kbd>⌃⇧[</kbd> for brightness</label>
       <label><input id="brightness-keys" type="checkbox" disabled> Use the Mac's brightness keys (F1/F2)</label>
-      <p id="accessibility" role="status" hidden>macOS has not allowed Accessibility yet, so F1/F2 cannot reach an external display. <button type="button" id="open-accessibility">Open System Settings</button></p>
+      <p id="accessibility" role="status" hidden><strong>Brightness keys need Accessibility.</strong> Allow Displays Studio KH in System Settings › Privacy &amp; Security › Accessibility so F1/F2 can reach an external display. <button type="button" id="open-accessibility">Open System Settings</button></p>
       <fieldset>
         <legend>Those keys move</legend>
+        <label><input type="radio" name="follow" id="follow-pointer" value="pointer"> The display under the pointer</label>
         <label><input type="radio" name="follow" id="follow-all" value="all"> Every external display</label>
         <label><input type="radio" name="follow" id="follow-selected" value="selected"> The selected display</label>
         <label class="inline">Selected display

@@ -37,7 +37,8 @@ function render() {
   $('#login').checked = info.login.enabled;
   $('#login').disabled = false;
   $('#accessibility').hidden = info.keys.trusted;
-  $('#follow-all').checked = info.follow !== 'selected';
+  $('#follow-pointer').checked = info.follow !== 'all' && info.follow !== 'selected';
+  $('#follow-all').checked = info.follow === 'all';
   $('#follow-selected').checked = info.follow === 'selected';
 
   const selected = $('#selected-display');
@@ -131,16 +132,20 @@ async function saveChord(display, brighter, chord) {
 }
 
 async function saveFollow() {
-  const follow = $('#follow-selected').checked ? 'selected' : 'all';
+  const follow = $('#follow-selected').checked ? 'selected' : ($('#follow-all').checked ? 'all' : 'pointer');
   try {
     info = await invoke('set_keys_follow', { follow, display: $('#selected-display').value });
     render();
-    status(follow === 'selected' ? 'The keys move the selected display.' : 'The keys move every external display.');
+    const msg = follow === 'selected'
+      ? 'The keys move the selected display.'
+      : (follow === 'all' ? 'The keys move every external display.' : 'The keys move the display under the pointer.');
+    status(msg);
   } catch (error) {
     status(String(error), true);
   }
 }
 
+$('#follow-pointer').addEventListener('change', saveFollow);
 $('#follow-all').addEventListener('change', saveFollow);
 $('#follow-selected').addEventListener('change', saveFollow);
 $('#selected-display').addEventListener('change', saveFollow);

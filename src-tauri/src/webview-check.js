@@ -32,12 +32,14 @@
     // answer with the real state.
     assert(document.querySelector('#settings-open'), 'The Settings button is missing from the panel');
     const settingsInfo = await invoke('settings_info');
-    assert(['all', 'selected'].includes(settingsInfo.follow) && Array.isArray(settingsInfo.hotkeys),
-      'settings_info did not return the keys-follow choice and the hotkey list');
+    assert(settingsInfo.follow === 'pointer' && Array.isArray(settingsInfo.hotkeys),
+      'settings_info did not default to pointer follow and return the hotkey list');
     const followed = await invoke('set_keys_follow', { follow: 'selected', display: 'demo-display' });
     assert(followed.follow === 'selected' && followed.selected === 'demo-display', 'The keys-follow choice did not stick');
-    const back = await invoke('set_keys_follow', { follow: 'all', display: '' });
-    assert(back.follow === 'all', 'The keys-follow choice did not go back');
+    const allMode = await invoke('set_keys_follow', { follow: 'all', display: '' });
+    assert(allMode.follow === 'all', 'The keys-follow choice did not switch to all');
+    const back = await invoke('set_keys_follow', { follow: 'pointer', display: '' });
+    assert(back.follow === 'pointer', 'The keys-follow choice did not go back to pointer');
     result.settings_screen = { follow: settingsInfo.follow, hotkeys: settingsInfo.hotkeys.length };
     assert(document.querySelector('#intro'), 'The first-run explanation is missing');
     // Saved presets: the controls exist, and the backend really remembers and forgets a name
@@ -79,7 +81,7 @@
     // with the button that opens the pane — a missing grant is a state, never a silent control.
     const note = document.querySelector('#accessibility-note');
     assert(note && !note.hidden, 'The Accessibility note is hidden while the grant is missing');
-    assert(/Accessibility/.test(note.textContent) && note.querySelector('#open-accessibility'), 'The Accessibility note names no permission or has no button that opens the setting');
+    assert(/Brightness keys need Accessibility/.test(note.textContent) && note.querySelector('#open-accessibility'), 'The Accessibility note does not show "Brightness keys need Accessibility" or its button');
     assert(document.documentElement.scrollWidth <= innerWidth, 'Panel overflows horizontally');
     // body scrolls inside a capped height, so documentElement always reads the viewport — the body's
     // own scrollHeight is the one that says whether a person would have to scroll.

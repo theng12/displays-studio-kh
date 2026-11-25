@@ -1,5 +1,12 @@
 # What's New
 
+## 0.1.14 — 2026-11-25
+
+- The Mac's F1 and F2 brightness keys now change monitor brightness properly. Previously the app misread the brightness key signal from Apple keyboards and ignored plain F1 and F2 when standard function keys were turned on; both shapes work now.
+- By default, pressing F1 or F2 changes the display under the pointer, while Settings still lets you choose every external display or one selected display.
+- External monitors are adjusted through the monitor's own brightness control, and a built-in Mac screen uses macOS's own built-in brightness path instead of mixing the two.
+- Without Accessibility permission, the app now clearly says "Brightness keys need Accessibility" with a button straight to the right System Settings pane, and records that once per launch.
+
 ## 0.1.13 — 2026-11-24
 
 - Settings now has a real screen of its own: the gear in the panel, or Settings… in the menu-bar menu. The three switches that used to sit in the panel moved here, with the choices that belong beside them.

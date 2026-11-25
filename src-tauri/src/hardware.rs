@@ -1,10 +1,104 @@
-use core_graphics::display::CGDisplay;
+use core_graphics::{display::CGDisplay, geometry::{CGPoint, CGRect}};
 use ddc::{Ddc, DdcHost};
 use ddc_macos::Monitor;
 use serde::Serialize;
 
 const BRIGHTNESS: u8 = 0x10;
 const FEATURES: [u8; 3] = [BRIGHTNESS, 0x12, 0x62];
+
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGEventCreate(source: *const std::ffi::c_void) -> *mut std::ffi::c_void;
+    fn CGEventGetLocation(event: *mut std::ffi::c_void) -> CGPoint;
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {
+    fn CFRelease(object: *const std::ffi::c_void);
+}
+
+fn pointer_location() -> Option<(f64, f64)> {
+    unsafe {
+        // A null event carries the current pointer location. It posts nothing and drives no input.
+        let event = CGEventCreate(std::ptr::null());
+        if event.is_null() { return None; }
+        let point = CGEventGetLocation(event);
+        CFRelease(event);
+        Some((point.x, point.y))
+    }
+}
+
+/// The display whose bounds contain the point. Half-open edges make shared screen edges unambiguous.
+pub(crate) fn display_at(point: (f64, f64), displays: &[(u32, CGRect)]) -> Option<u32> {
+    displays.iter().find_map(|&(id, bounds)| {
+        (point.0 >= bounds.origin.x && point.0 < bounds.origin.x + bounds.size.width
+            && point.1 >= bounds.origin.y && point.1 < bounds.origin.y + bounds.size.height)
+            .then_some(id)
+    })
+}
+
+pub fn pointer_display() -> Option<u32> {
+    let point = pointer_location()?;
+    let active = CGDisplay::active_displays().ok()?;
+    let displays = active.into_iter().map(|id| (id, CGDisplay::new(id).bounds())).collect::<Vec<_>>();
+    display_at(point, &displays)
+}
+
+pub fn is_builtin(display: u32) -> bool {
+    CGDisplay::new(display).is_builtin()
+}
+
+/// Pure 5% step for a built-in display's 0.0..=1.0 brightness scale.
+pub(crate) fn step_builtin_level(current: f32, brighter: bool) -> f32 {
+    let delta = if brighter { 0.05 } else { -0.05 };
+    (current + delta).clamp(0.0, 1.0)
+}
+
+/// Steps the built-in display through macOS's DisplayServices brightness API (never DDC/CI).
+/// Loaded at runtime with `dlopen` so the binary carries no private-framework link entry.
+pub fn step_builtin(display: u32, brighter: bool) -> Result<Step, String> {
+    if !is_builtin(display) {
+        return Err("Built-in brightness only applies to the built-in display.".into());
+    }
+    type GetFn = unsafe extern "C" fn(u32, *mut f32) -> i32;
+    type SetFn = unsafe extern "C" fn(u32, f32) -> i32;
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        fn dlsym(handle: *mut std::ffi::c_void, symbol: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+    }
+    const RTLD_LAZY: i32 = 1;
+    let (get_fn, set_fn): (GetFn, SetFn) = unsafe {
+        let lib = dlopen(
+            b"/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices\0".as_ptr().cast(),
+            RTLD_LAZY,
+        );
+        if lib.is_null() {
+            return Err("macOS built-in display brightness is unavailable on this Mac.".into());
+        }
+        let get_sym = dlsym(lib, b"DisplayServicesGetBrightness\0".as_ptr().cast());
+        let set_sym = dlsym(lib, b"DisplayServicesSetBrightness\0".as_ptr().cast());
+        if get_sym.is_null() || set_sym.is_null() {
+            return Err("macOS built-in display brightness API was not found.".into());
+        }
+        (std::mem::transmute(get_sym), std::mem::transmute(set_sym))
+    };
+    let mut current: f32 = 0.0;
+    if unsafe { get_fn(display, &mut current) } != 0 {
+        return Err("Could not read the built-in display's brightness.".into());
+    }
+    let target = step_builtin_level(current, brighter);
+    if (target - current).abs() >= f32::EPSILON && unsafe { set_fn(display, target) } != 0 {
+        return Err("Could not change the built-in display's brightness.".into());
+    }
+    let mut confirmed = target;
+    let _ = unsafe { get_fn(display, &mut confirmed) };
+    let percent = (confirmed.clamp(0.0, 1.0) * 100.0).round() as u16;
+    Ok(Step {
+        changed: Vec::new(),
+        message: format!("Built-in display: brightness {} ({percent}%)", if brighter { "up" } else { "down" }),
+        failed: false,
+    })
+}
 
 #[derive(Serialize)]
 pub struct Display {
@@ -246,30 +340,48 @@ pub struct Step {
 impl Step {
     pub fn message(&self) -> &str { &self.message }
     /// A step that could not run, carried in the same shape so the panel shows one kind of answer.
+    #[allow(dead_code)]
     pub fn failed(message: String) -> Step {
         Step { changed: Vec::new(), message, failed: true }
     }
+}
+
+/// The raw value one step away from `value`, bounded by the range the monitor itself reports.
+pub(crate) fn step_to(value: u16, max: u16, brighter: bool) -> u16 {
+    let delta = max.div_ceil(20);
+    if brighter { value.saturating_add(delta).min(max) } else { value.saturating_sub(delta) }
 }
 
 /// One monitor, one step. The only place the step size lives, so the global pair and a per-display
 /// hotkey move a monitor by the same amount.
 fn step_monitor(monitor: &mut Monitor, brighter: bool) -> Result<Level, String> {
     let (value, max) = read(monitor, BRIGHTNESS)?;
-    let delta = max.div_ceil(20);
-    let target = if brighter { value.saturating_add(delta).min(max) } else { value.saturating_sub(delta) };
+    let target = step_to(value, max, brighter);
     if value == target { Ok(level(BRIGHTNESS, value, max)) } else { write(monitor, BRIGHTNESS, target, max) }
+}
+
+fn step_named(mut monitor: Monitor, display: String, brighter: bool, label: &str) -> Result<Step, String> {
+    let outcome = step_monitor(&mut monitor, brighter);
+    let (changed, message, failed) = match outcome {
+        Ok(value) => (vec![(display, value)], format!("{label}: brightness {}", if brighter { "up" } else { "down" }), false),
+        Err(reason) => (Vec::new(), reason, true),
+    };
+    Ok(Step { changed, message, failed })
 }
 
 /// One named display — the selected display, or a display with its own hotkey.
 pub fn step_on(display: &str, brighter: bool) -> Result<Step, String> {
-    let mut monitor = monitors()?.into_iter().find(|m| id(m.handle()) == display)
+    let monitor = monitors()?.into_iter().find(|m| id(m.handle()) == display)
         .ok_or("That display isn't connected. Choose another one in Settings.")?;
-    let outcome = step_monitor(&mut monitor, brighter);
-    let (changed, message, failed) = match outcome {
-        Ok(value) => (vec![(display.to_string(), value)], format!("Selected display: brightness {}", if brighter { "up" } else { "down" }), false),
-        Err(reason) => (Vec::new(), reason, true),
-    };
-    Ok(Step { changed, message, failed })
+    step_named(monitor, display.to_string(), brighter, "Selected display")
+}
+
+/// The external display whose CGDirectDisplayID is under the pointer.
+pub fn step_id(display: u32, brighter: bool) -> Result<Step, String> {
+    let monitor = monitors()?.into_iter().find(|m| m.handle().id == display)
+        .ok_or("The display under the pointer isn't responding. Move the pointer over it and refresh.")?;
+    let name = id(monitor.handle());
+    step_named(monitor, name, brighter, "Display under the pointer")
 }
 
 pub fn step(brighter: bool) -> Result<Step, String> {
@@ -309,8 +421,38 @@ pub fn verify_write(name: &str) -> Result<(u16, u16, u16), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core_graphics::geometry::CGSize;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    #[test]
+    fn one_step_is_five_percent_and_stays_inside_the_reported_range() {
+        assert_eq!(step_to(40, 100, true), 45);
+        assert_eq!(step_to(40, 100, false), 35);
+        assert_eq!(step_to(99, 100, true), 100);
+        assert_eq!(step_to(1, 100, false), 0);
+        assert_eq!(step_to(0, 100, false), 0);
+    }
+
+    #[test]
+    fn builtin_brightness_steps_five_percent_and_clamps() {
+        assert!((step_builtin_level(0.40, true) - 0.45).abs() < 1e-6);
+        assert!((step_builtin_level(0.40, false) - 0.35).abs() < 1e-6);
+        assert!((step_builtin_level(0.98, true) - 1.0).abs() < 1e-6);
+        assert!((step_builtin_level(0.02, false) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn the_pointer_picks_the_display_under_it_not_the_main_display() {
+        let left = CGRect::new(&CGPoint::new(0.0, 0.0), &CGSize::new(1920.0, 1080.0));
+        let right = CGRect::new(&CGPoint::new(1920.0, 0.0), &CGSize::new(1280.0, 720.0));
+        let displays = [(1, left), (2, right)];
+        assert_eq!(display_at((1500.0, 500.0), &displays), Some(1));
+        assert_eq!(display_at((2200.0, 500.0), &displays), Some(2));
+        // The shared edge belongs to the display to its right, never both.
+        assert_eq!(display_at((1920.0, 500.0), &displays), Some(2));
+        assert_eq!(display_at((-1.0, 500.0), &displays), None);
+    }
 
     #[test]
     fn scales_to_the_monitors_reported_range() {
