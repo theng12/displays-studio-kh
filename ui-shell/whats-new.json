@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.1.15",
+    "version": "0.1.16",
     "date": "2026-11-25",
     "items": [
       "A small brightness bar now appears at the bottom of the monitor you are adjusting and fades away after a second, so you can see how far each press moved it.",
