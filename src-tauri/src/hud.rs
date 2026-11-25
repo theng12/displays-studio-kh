@@ -504,29 +504,37 @@ mod tests {
         assert!(y + h <= 1056.0);
     }
 
+    #[test]
     fn an_icon_near_the_left_edge_pushes_the_hud_in_from_the_edge() {
         let (x, _, _, _) = anchor(Some((2.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 1920.0, 1080.0));
         assert_eq!(x, SCREEN_MARGIN);
     }
 
+    #[test]
     fn an_icon_near_the_right_edge_pushes_the_hud_in_from_the_edge() {
         let (x, _, _, _) = anchor(Some((1900.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 1920.0, 1080.0));
         assert_eq!(x, 1920.0 - HUD_W - SCREEN_MARGIN);
     }
 
+    #[test]
     fn a_narrow_screen_keeps_the_hud_on_screen() {
         // Narrower than the HUD plus both margins: it sits at the left margin rather than off-screen.
         let (x, _, _, _) = anchor(Some((50.0, 1056.0, 20.0, 24.0)), (0.0, 0.0, 150.0, 1080.0));
         assert_eq!(x, SCREEN_MARGIN);
     }
 
+    #[test]
     fn a_second_screen_anchors_in_its_own_coordinates() {
-        // Screen to the right of the main one, icon near its top-left.
-        let (x, y, _, _) = anchor(Some((1930.0, 1056.0, 20.0, 24.0)), (1920.0, 0.0, 2560.0, 1440.0));
-        assert_eq!(x, 1940.0 - HUD_W / 2.0);
-        assert_eq!(y, 1056.0 - ICON_GAP - HUD_H);
+        // Screen to the right of the main one: centred icon stays centred, edge icon clamps to the second screen's own left margin.
+        let second = (1920.0, 0.0, 2560.0, 1440.0);
+        let (x, y, _, _) = anchor(Some((2400.0, 1416.0, 20.0, 24.0)), second);
+        assert_eq!(x, 2410.0 - HUD_W / 2.0);
+        assert_eq!(y, 1416.0 - ICON_GAP - HUD_H);
+        let (clamped_x, _, _, _) = anchor(Some((1930.0, 1416.0, 20.0, 24.0)), second);
+        assert_eq!(clamped_x, 1920.0 + SCREEN_MARGIN);
     }
 
+    #[test]
     fn a_hidden_status_item_falls_back_to_the_top_right_never_the_bottom() {
         let screen = (0.0, 0.0, 1920.0, 1080.0);
         let (x, y, w, h) = anchor(None, screen);
@@ -537,6 +545,7 @@ mod tests {
         assert!(y > 1080.0 / 2.0);
     }
 
+    #[test]
     fn the_icon_moves_the_hud_to_the_icon_s_own_screen() {
         let screens = [(0.0, 0.0, 1920.0, 1080.0), (1920.0, 0.0, 2560.0, 1440.0)];
         let icon_on_second = (2500.0, 1416.0, 20.0, 24.0);

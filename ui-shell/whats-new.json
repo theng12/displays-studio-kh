@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.18",
+    "date": "2026-11-25",
+    "items": [
+      "Updates while a display action is running now report each step clearly — paused, updating, and resumed — and name any action still finishing at the deadline.",
+      "Added full automated checks for menu-bar brightness bar edge clamping, multi-display anchoring, and overflow fallback."
+    ]
+  },
+  {
     "version": "0.1.17",
     "date": "2026-11-25",
     "items": [

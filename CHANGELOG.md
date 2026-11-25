@@ -1,5 +1,10 @@
 # What's New
 
+## 0.1.18 — 2026-11-25
+
+- When an automatic update holds Displays Studio KH while a display action is running, the hold now reports every phase clearly (`held → paused → updating → resumed`), names anything still in flight at the deadline, and refuses queued display actions cleanly until the update finishes or the pause expires.
+- Enabled the full unit test suite covering menu-bar brightness bar clamping at left/right edges, narrow screens, multi-display anchoring, and top-right overflow fallback.
+
 ## 0.1.17 — 2026-11-25
 
 - The brightness bar now appears just under this app's menu-bar icon, at the top of the screen, so it shows up where you would look for it. It stays centred on the icon and slides in from the edge when the icon sits near one.

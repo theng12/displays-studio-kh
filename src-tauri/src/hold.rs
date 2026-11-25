@@ -68,6 +68,7 @@ impl Hold {
         let mut state = self.0.lock().unwrap();
         if state.paused() {
             let seconds = state.seconds_left();
+            eprintln!("update hold: refused \"{label}\" while paused ({seconds} s left)");
             return Err(format!(
                 "Displays Studio KH is holding new work while an update installs. Nothing was changed; it takes work again by itself in about {seconds} s."
             ));
@@ -214,9 +215,15 @@ fn hold_request(app: &AppHandle, query: &str) -> String {
     eprintln!(
         "update hold: {} in {ms} ms (ceiling {timeout_s} s, pause {pause_s} s, {in_flight} in flight){}",
         if safe { "safe" } else { "not safe" },
-        if unsettled.is_empty() { String::new() } else { format!(" — still in flight: {}", unsettled.join(", ")) }
+        if unsettled.is_empty() {
+            " — ready for updating".to_string()
+        } else {
+            format!(" — still in flight: {}", unsettled.join(", "))
+        }
     );
-    if !safe {
+    if safe {
+        announce(app, format!("Paused {pause_s} s for an update — updating now."));
+    } else {
         announce(app, format!("Paused for an update; {} still finishing.", unsettled.join(", ")));
     }
     serde_json::json!({
@@ -224,6 +231,7 @@ fn hold_request(app: &AppHandle, query: &str) -> String {
         "unsettled": unsettled,
         "dispatch_paused_s": pause_s,
         "in_flight": in_flight,
+        "waiting": 0,
     })
     .to_string()
 }
@@ -239,6 +247,7 @@ fn resume_request(app: &AppHandle) -> String {
         "unsettled": Vec::<String>::new(),
         "dispatch_paused_s": 0,
         "in_flight": hold.in_flight(),
+        "waiting": 0,
     })
     .to_string()
 }
