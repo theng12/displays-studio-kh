@@ -15,7 +15,7 @@ use std::{
 
 use objc2::{define_class, msg_send, rc::Retained, MainThreadMarker};
 use objc2_app_kit::{
-    NSAnimationContext, NSColor, NSFont, NSLevelIndicator, NSLevelIndicatorStyle, NSPanel, NSTextField,
+    NSAnimationContext, NSApplication, NSApplicationActivationOptions, NSColor, NSRunningApplication, NSFont, NSLevelIndicator, NSLevelIndicatorStyle, NSPanel, NSTextField,
     NSVisualEffectBlendingMode, NSWorkspace, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
@@ -70,10 +70,16 @@ thread_local! {
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// What the offscreen self-test measured: visible, key, main, app active before and after.
-static SELFTEST: [AtomicBool; 6] = [const { AtomicBool::new(false) }; 6];
+static SELFTEST: [AtomicBool; 7] = [const { AtomicBool::new(false) }; 7];
 
 /// The app in front before the HUD was shown, so the self-test can prove it did not change.
 static FRONT_BEFORE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+thread_local! {
+    /// The app that had focus when the press arrived. macOS can promote this accessory app to the
+    /// front when its panel is ordered in, so that app is given the front back straight away.
+    static PREVIOUS: RefCell<Option<Retained<NSRunningApplication>>> = const { RefCell::new(None) };
+}
 
 /// The panel refuses key and main outright. A plain `NSPanel` still lets macOS activate the app when
 /// it is ordered front, which would pull focus away from whatever the person is typing in; overriding
@@ -113,7 +119,10 @@ fn show_at(app: &AppHandle, frame: (f64, f64, f64, f64), percent: u16) {
     // One short-lived thread per press: sleep, then fade on the main thread. No polling, no timer
     // that outlives the press.
     let handle = app.clone();
+    let giving_back = app.clone();
     std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(80));
+        let _ = giving_back.run_on_main_thread(restore_previous_app);
         std::thread::sleep(VISIBLE);
         let _ = handle.run_on_main_thread(move || {
             if GENERATION.load(Ordering::SeqCst) != generation {
@@ -121,7 +130,7 @@ fn show_at(app: &AppHandle, frame: (f64, f64, f64, f64), percent: u16) {
             }
             HUD.with(|slot| {
                 if let Some(hud) = slot.borrow().as_ref() {
-                    fade_and_hide(&hud.panel);
+                    fade_and_hide(&hud.panel, generation);
                 }
             });
         });
@@ -135,11 +144,35 @@ fn place_and_show(frame: (f64, f64, f64, f64), percent: u16) {
     HUD.with(|slot| {
         let mut slot = slot.borrow_mut();
         let hud = slot.get_or_insert_with(build);
+        PREVIOUS.with(|slot| {
+            *slot.borrow_mut() = NSWorkspace::sharedWorkspace().frontmostApplication();
+        });
         hud.panel.setFrame_display(NSRect::new(NSPoint::new(x, y), NSSize::new(w, h)), false);
         hud.bar.setDoubleValue(f64::from(percent));
         hud.label.setStringValue(&NSString::from_str(&format!("{percent}%")));
-        hud.panel.setAlphaValue(1.0);
+        // Through the animator with no duration: a fade still running from a press ~a second ago is
+        // replaced instead of pulling the new value down to zero.
+        set_alpha(&hud.panel, 1.0);
         hud.panel.orderFrontRegardless();
+    });
+}
+
+/// Gives the front back to the app that had it before the press, if macOS handed it to this one.
+/// A no-op when the front never moved, which is the usual case.
+fn restore_previous_app() {
+    PREVIOUS.with(|slot| {
+        let slot = slot.borrow();
+        let Some(previous) = slot.as_ref() else { return };
+        let Some(mtm) = MainThreadMarker::new() else { return };
+        let ours = NSApplication::sharedApplication(mtm).isActive();
+        let front_is_us = NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .and_then(|app| app.bundleIdentifier())
+            .map(|id| id.to_string() == OUR_BUNDLE_ID)
+            .unwrap_or(false);
+        if ours || front_is_us {
+            previous.activateWithOptions(NSApplicationActivationOptions::ActivateAllWindows);
+        }
     });
 }
 
@@ -195,8 +228,24 @@ fn build() -> Hud {
     Hud { panel, bar, label }
 }
 
-/// Fades out over `FADE` seconds and hides; the panel is kept for the next press.
-fn fade_and_hide(panel: &Retained<NSPanel>) {
+/// Sets the panel's opacity through the animator with no duration, which also cancels a fade that is
+/// still running — a plain `setAlphaValue` would be overridden by it until it finished.
+fn set_alpha(panel: &NSPanel, alpha: f64) {
+    unsafe {
+        NSAnimationContext::runAnimationGroup_completionHandler(
+            &block2::RcBlock::new(move |context: NonNull<NSAnimationContext>| {
+                context.as_ref().setDuration(0.0);
+                let animator: Retained<objc2::runtime::AnyObject> = msg_send![panel, animator];
+                let _: () = msg_send![&animator, setAlphaValue: alpha];
+            }),
+            None,
+        );
+    }
+}
+
+/// Fades out over `FADE` seconds and hides; the panel is kept for the next press. The hide is guarded
+/// by the press generation: a newer press owns the panel, and an older fade must not take it away.
+fn fade_and_hide(panel: &Retained<NSPanel>, generation: u64) {
     let fading = panel.clone();
     let hiding = panel.clone();
     unsafe {
@@ -206,7 +255,13 @@ fn fade_and_hide(panel: &Retained<NSPanel>) {
                 let animator: Retained<objc2::runtime::AnyObject> = msg_send![&*fading, animator];
                 let _: () = msg_send![&animator, setAlphaValue: 0.0f64];
             }),
-            Some(&block2::RcBlock::new(move || hiding.orderOut(None))),
+            Some(&block2::RcBlock::new(move || {
+                if GENERATION.load(Ordering::SeqCst) == generation {
+                    hiding.orderOut(None);
+                } else {
+                    set_alpha(&hiding, 1.0);
+                }
+            })),
         );
     }
 }
@@ -227,6 +282,7 @@ pub(crate) fn selftest(app: AppHandle) {
     let showing = app.clone();
     let reading = app.clone();
     let finishing = app.clone();
+    let show_handle = app.clone();
     std::thread::spawn(move || {
         // The app finishes launching first: anything from startup is not the HUD's doing.
         std::thread::sleep(Duration::from_millis(1200));
@@ -234,7 +290,7 @@ pub(crate) fn selftest(app: AppHandle) {
             let Some(mtm) = MainThreadMarker::new() else { return };
             *FRONT_BEFORE.lock().unwrap() = frontmost_bundle(mtm);
             println!("HUD SELFTEST: frontmost before the HUD = {:?}", FRONT_BEFORE.lock().unwrap());
-            show_at(&app, (-6000.0, -6000.0, HUD_W, HUD_H), 50);
+            show_at(&show_handle, (-6000.0, -6000.0, HUD_W, HUD_H), 50);
         });
         std::thread::sleep(Duration::from_millis(300));
         let _ = reading.run_on_main_thread(move || {
@@ -261,13 +317,27 @@ pub(crate) fn selftest(app: AppHandle) {
                 );
             });
         });
+        // A second press lands inside the first one's fade: the older fade must not hide it.
+        std::thread::sleep(Duration::from_millis(700));
+        let again = finishing.clone();
+        let again_handle = app.clone();
+        let _ = again.run_on_main_thread(move || {
+            show_at(&again_handle, (-6000.0, -6000.0, HUD_W, HUD_H), 52);
+        });
+        std::thread::sleep(Duration::from_millis(250));
+        let after_second = app.clone();
+        let _ = after_second.run_on_main_thread(move || {
+            let visible = HUD.with(|slot| slot.borrow().as_ref().map(|hud| hud.panel.isVisible()).unwrap_or(false));
+            SELFTEST[6].store(visible, Ordering::SeqCst);
+            println!("HUD SELFTEST: second press {} ms into the first fade — still visible={visible}", VISIBLE.as_millis() + 100);
+        });
         std::thread::sleep(VISIBLE + Duration::from_millis(500));
         let _ = finishing.run_on_main_thread(move || {
             let hidden = HUD.with(|slot| slot.borrow().as_ref().map(|hud| !hud.panel.isVisible()).unwrap_or(false));
             let ok = |index: usize| SELFTEST[index].load(Ordering::SeqCst);
             let focus_ok = !ok(4) || !ok(3);
-            let pass = frame_ok && ok(0) && !ok(1) && !ok(2) && focus_ok && hidden;
-            println!("HUD SELFTEST: hidden after {} ms, fade {:.0} ms — visible_now={}", VISIBLE.as_millis() + 500, FADE * 1000.0, !hidden);
+            let pass = frame_ok && ok(0) && !ok(1) && !ok(2) && focus_ok && ok(6) && hidden;
+            println!("HUD SELFTEST: hidden after the last press, fade {:.0} ms — visible_now={}", FADE * 1000.0, !hidden);
             println!("HUD SELFTEST: focus {}", if !ok(4) { "UNMEASURED" } else if ok(3) { "FAIL (moved)" } else { "unchanged" });
             println!("HUD SELFTEST: {}", if pass { "PASS" } else { "FAIL" });
             std::process::exit(if pass { 0 } else { 1 });
