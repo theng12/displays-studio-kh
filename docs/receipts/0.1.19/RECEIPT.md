@@ -117,8 +117,9 @@ PASS  held 120s over live work, the executable was replaced in that gap, and the
 
 ## Closeout
 
-- OPEN-WORK.md: the hold-credential item is ticked with the cause and the 0.1.19 proof; its other
-  items remain open and are listed in `not proven` above where they concern this release.
+- OPEN-WORK.md: the hold-credential item is removed as shipped (the work-list checker refuses
+  `- [x]` items); its other items remain open and are listed in `not proven` above where they concern
+  this release.
 - S001 handoff: `$HOME/Developer/_orchestra/developer-system/update-studio-kh/lead/displays-0.1.19-feed-handoff.md`
   carries the exact row (version, sha256, bytes, file, url, tagline, type, holdURL, holdSince).
 - `kh-releases` is feed-only; no app-repo `page-sync.sh` copy exists.
