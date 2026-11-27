@@ -690,7 +690,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = builder.setup(|app| {
         app.set_activation_policy(ActivationPolicy::Accessory);
         // The installer reads this URL from the signed feed and calls it before an update.
-        hold::ensure_own_token();
         hold::start_server(app.handle().clone());
         #[cfg(feature = "webview-check")]
         let hidden = app.state::<Check>().0.is_some();

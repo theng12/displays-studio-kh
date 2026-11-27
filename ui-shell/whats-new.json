@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.19",
+    "date": "2026-11-27",
+    "items": [
+      "Automatic updates work again while Displays Studio KH is running: it takes the update hold, finishes the display action in flight, installs in the gap and reopens by itself.",
+      "The app now reads the Launcher's rotating hold credential on every request, so a credential change can never leave it refusing updates."
+    ]
+  },
+  {
     "version": "0.1.18",
     "date": "2026-11-25",
     "items": [

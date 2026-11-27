@@ -1,5 +1,11 @@
 # What's New
 
+## 0.1.19 — 2026-11-27
+
+- **Automatic updates work while the app is running.** The update hold now uses the same rotating credential the Launcher's agent presents, reading it fresh for every request. 0.1.13–0.1.18 kept a copy-once token of their own; the agent rotates the shared token on every start, so after the first rotation every hold was refused `401` and the updater latched it after three attempts. The app's `KHHoldTokenFile` and hold route both name `~/Library/KHUpdater/state/hold-token` again, as 0.1.11 and 0.1.12 did.
+- **Proved under load:** `tests/hold.sh` now sends the updater's exact request (both credential headers, empty body), refuses a stale app-owned copy, follows a live token rotation without a restart, takes a hold over a running display refresh, replaces the executable in the gap, and relaunches into work without a `DELETE`.
+- The stale `~/Library/Application Support/Displays Studio KH/hold-token` file is no longer read or written; it is left in place, not deleted.
+
 ## 0.1.18 — 2026-11-25
 
 - When an automatic update holds Displays Studio KH while a display action is running, the hold now reports every phase clearly (`held → paused → updating → resumed`), names anything still in flight at the deadline, and refuses queued display actions cleanly until the update finishes or the pause expires.

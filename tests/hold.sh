@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The fleet update hold (`_orchestra/youtube-stack/update-hold/CONTRACT.md`), proven headless with
 # work genuinely in flight: a hidden instance on its own temp profile, a real display refresh
-# slowed by the test hook, the hold taken while it runs, a bounded settle, an honest unsafe answer,
-# DELETE and expiry resume, a restart that starts open, and the route's refusals.
+# slowed by the test hook, the updater's exact credential and headers, a bounded settle, an honest
+# unsafe answer, DELETE and expiry resume, token rotation without restart, an executable replacement
+# during the hold, a relaunch that starts open, and the route's refusals.
 # No window, no desktop input, its own port (the live app keeps 8650).
 #
 #   bash tests/hold.sh [path/to/displays-studio-kh]
@@ -18,7 +19,7 @@ pass() { printf 'PASS  %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1" >&2; exit 1; }
 
 RUN="$(mktemp -d "${TMPDIR:-/tmp}/displays-studio-hold.XXXXXX")"
-mkdir -p "$RUN/home"
+mkdir -p "$RUN/home" "$RUN/app"
 export HOME="$RUN/home"
 # A fixed default collided with another session's harness squatting 18650–18653 (2026-11-23), so the
 # test takes a port the kernel says is free. HOLD_TEST_PORT still pins one when that is wanted.
@@ -26,11 +27,24 @@ export HOME="$RUN/home"
 PORT="${HOLD_TEST_PORT:-$(/usr/bin/python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')}"
 export DISPLAYS_STUDIO_HOLD_PORT="$PORT"
 export DISPLAYS_STUDIO_TEST_WORK_MS="${HOLD_TEST_WORK_MS:-6000}"
-TOKEN_FILE="$RUN/hold-token"
+# The presenter's credential lives where the agent writes it, and the app reads that same file. The
+# app is launched with no override on purpose: the shipped path is what this proves.
+TOKEN_FILE="$HOME/Library/KHUpdater/state/hold-token"
+mkdir -p "$(dirname "$TOKEN_FILE")"
 printf '%s\n' "$(/usr/bin/python3 -I -c 'import secrets; print(secrets.token_hex(32))')" > "$TOKEN_FILE"
 chmod 600 "$TOKEN_FILE"
-HOLD_TOKEN="$(cat "$TOKEN_FILE")"
-export KHU_HOLD_TOKEN_FILE="$TOKEN_FILE"
+HOLD_TOKEN="$(tr -d '\r\n' < "$TOKEN_FILE")"
+# The credential this app used to keep as its own copy. It must not be honoured any more: a stale
+# copy is what the updater could not present.
+STALE_TOKEN_FILE="$HOME/Library/Application Support/Displays Studio KH/hold-token"
+mkdir -p "$(dirname "$STALE_TOKEN_FILE")"
+printf '%s\n' "$(/usr/bin/python3 -I -c 'import secrets; print(secrets.token_hex(32))')" > "$STALE_TOKEN_FILE"
+chmod 600 "$STALE_TOKEN_FILE"
+STALE_TOKEN="$(tr -d '\r\n' < "$STALE_TOKEN_FILE")"
+# The instance under test runs from its own copy, so the replacement below never touches the build.
+TEST_BIN="$RUN/app/displays-studio-kh"
+cp "$BIN" "$TEST_BIN"
+chmod +x "$TEST_BIN"
 LOG="$RUN/app.log"
 APP_PID=""
 cleanup() { [ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null || true; }
@@ -38,8 +52,9 @@ trap cleanup EXIT
 
 now_ms() { /usr/bin/python3 -I -c 'import time; print(int(time.time() * 1000))'; }
 field() { /usr/bin/python3 -I -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get(sys.argv[1])))' "$1"; }
-post() { curl -sS --max-time 35 -X POST -H "X-Hub-Token: $HOLD_TOKEN" "http://127.0.0.1:$PORT/api/maintenance/hold?$1"; }
-del() { curl -sS --max-time 5 -X DELETE -H "X-Hub-Token: $HOLD_TOKEN" "http://127.0.0.1:$PORT/api/maintenance/hold"; }
+# The updater's exact request: both credential headers, an empty body and the contract's query.
+post() { curl -sS --max-time 35 -X POST -H "X-Hub-Token: $HOLD_TOKEN" -H "Authorization: Bearer $HOLD_TOKEN" --data '' "http://127.0.0.1:$PORT/api/maintenance/hold?$1"; }
+del() { curl -sS --max-time 5 -X DELETE -H "X-Hub-Token: $HOLD_TOKEN" -H "Authorization: Bearer $HOLD_TOKEN" "http://127.0.0.1:$PORT/api/maintenance/hold"; }
 code() { curl -sS -o /dev/null -w '%{http_code}' "$@"; }
 wait_for() { # <text> <seconds>
   local end=$(( $(now_ms) + ${2} * 1000 ))
@@ -48,7 +63,7 @@ wait_for() { # <text> <seconds>
 }
 start() { # <config dir>
   : > "$LOG"
-  "$BIN" --test-mode "$1" >>"$LOG" 2>&1 &
+  "$TEST_BIN" --test-mode "$1" >>"$LOG" 2>&1 &
   APP_PID=$!
   wait_for "update hold listening on http://127.0.0.1:$PORT" 15 || { tail -30 "$LOG" >&2; fail "the hidden app did not start its update hold"; }
 }
@@ -67,6 +82,25 @@ start "$RUN/config1"
 # The panel loads and starts a real display refresh; the test hook makes it last a few seconds
 # and says so, so the hold below provably lands while that work is running.
 wait_for "test work in flight" 30 || { tail -30 "$LOG" >&2; fail "the panel's display refresh never started"; }
+
+# 0. The credential. The agent rotates its own file on every start, so the app must read the
+# presenter's file afresh: the live credential is honoured and the copy this app used to keep is not.
+[ "$(code -X POST -H "X-Hub-Token: $STALE_TOKEN" -H "Authorization: Bearer $STALE_TOKEN" --data '' "http://127.0.0.1:$PORT/api/maintenance/hold?timeout_s=0&pause_s=1")" = 401 ] || fail "a stale app-owned token was accepted"
+REPLY=$(post "timeout_s=0&pause_s=1")
+[ "$(echo "$REPLY" | field dispatch_paused_s)" = "1" ] || fail "the updater's credential was not accepted: $REPLY"
+del >/dev/null
+pass "the updater's credential is accepted; the app's old own-token copy is refused (401)"
+
+# 0b. The agent rotates that credential on every start. The app must follow the rotation without a
+# restart: the token that was just replaced is refused and the new one is honoured.
+OLD_TOKEN="$HOLD_TOKEN"
+HOLD_TOKEN="$(/usr/bin/python3 -I -c 'import secrets; print(secrets.token_hex(32))')"
+printf '%s\n' "$HOLD_TOKEN" > "$TOKEN_FILE.new" && chmod 600 "$TOKEN_FILE.new" && mv -f "$TOKEN_FILE.new" "$TOKEN_FILE"
+[ "$(code -X POST -H "X-Hub-Token: $OLD_TOKEN" -H "Authorization: Bearer $OLD_TOKEN" --data '' "http://127.0.0.1:$PORT/api/maintenance/hold?timeout_s=0&pause_s=1")" = 401 ] || fail "the rotated-away credential was still accepted"
+REPLY=$(post "timeout_s=0&pause_s=1")
+[ "$(echo "$REPLY" | field dispatch_paused_s)" = "1" ] || fail "the rotated credential was not accepted: $REPLY"
+del >/dev/null
+pass "the agent's rotation is followed live: the old token 401s, the new one 200s, no restart"
 
 # 1. A hold over live work: taken at once, honest unsafe answer naming it, bounded by 1 s.
 START=$(now_ms); REPLY=$(post "timeout_s=1&pause_s=120"); ELAPSED=$(( $(now_ms) - START ))
@@ -119,19 +153,25 @@ pass "an abandoned hold expired by itself after pause_s"
 [ "$(code -X POST -H "X-Hub-Token: $HOLD_TOKEN" -H 'Origin: http://example.test' "http://127.0.0.1:$PORT/api/maintenance/hold?timeout_s=1")" = 401 ] || fail "a browser-origin request was accepted"
 pass "the route refuses a missing/wrong token, a GET, an unknown path and a browser origin"
 
-# 6. Updating gap + relaunch without DELETE: take a 120 s hold, quit the process while held
-# (simulating replace during updating), relaunch fresh, and prove work starts immediately (resumed).
+# 6. The install itself, in the hold's gap: while the app is held, its executable is replaced on
+# disk (the install), then it is relaunched without DELETE and takes work again by itself.
+exe_inode() { lsof -F fi -p "$1" 2>/dev/null | awk '/^ftxt$/{getline; sub(/^i/,""); print; exit}'; }
 REPLY=$(post "timeout_s=1&pause_s=120")
-[ "$(echo "$REPLY" | field safe)" = "true" ] || fail "could not enter updating hold before restart: $REPLY"
+[ "$(echo "$REPLY" | field safe)" = "true" ] || fail "could not enter updating hold before the install: $REPLY"
 [ "$(echo "$REPLY" | field dispatch_paused_s)" = "120" ] || fail "updating hold did not report pause_s=120: $REPLY"
 grep -E 'held new work|update hold:|the update pause expired|resumed;' "$LOG" | sed 's/^/  log: /'
+OLD_INODE="$(exe_inode "$APP_PID")"
+cp "$BIN" "$TEST_BIN.new" && chmod +x "$TEST_BIN.new" && mv -f "$TEST_BIN.new" "$TEST_BIN"
+NEW_INODE="$(stat -f %i "$TEST_BIN")"
+[ -n "$OLD_INODE" ] && [ "$OLD_INODE" != "$NEW_INODE" ] || fail "the executable was not replaced during the hold (old ${OLD_INODE:-none}, new $NEW_INODE)"
 quit
 mkdir -p "$RUN/config2"
 start "$RUN/config2"
-wait_for "test work in flight" 30 || { tail -30 "$LOG" >&2; fail "the restarted app refused its own first work"; }
+[ "$(exe_inode "$APP_PID")" = "$NEW_INODE" ] || fail "the relaunched process is not running the replaced executable"
+wait_for "test work in flight" 30 || { tail -30 "$LOG" >&2; fail "the replaced app refused its own first work"; }
 REPLY=$(post "timeout_s=1&pause_s=1")
-[ "$(echo "$REPLY" | field in_flight)" -ge 1 ] || fail "a restart came up holding: $REPLY"
-pass "quit while paused 120s (updating) and relaunched without DELETE -> resumed, new work running"
+[ "$(echo "$REPLY" | field in_flight)" -ge 1 ] || fail "a relaunch came up holding: $REPLY"
+pass "held 120s over live work, the executable was replaced in that gap, and the replaced app relaunched without DELETE -> resumed, new work running"
 quit
-echo "UPDATE-UNDER-LOAD PASS: held -> paused 120s (deadline 1s: safe=false, in_flight=1, unsettled=${UNSETTLED_AT_DEADLINE}) -> settled ${SETTLE_MS}ms (safe=true, queued \"Saving a preset\" refused while paused) -> updating (quit while paused, relaunched without DELETE) -> resumed (new work accepted; 1s idle expiry ok)"
+echo "UPDATE-UNDER-LOAD PASS: credential (updater's file honoured, stale own copy 401, rotation followed live) -> held -> paused 120s (deadline 1s: safe=false, in_flight=1, unsettled=${UNSETTLED_AT_DEADLINE}) -> settled ${SETTLE_MS}ms (safe=true, queued \"Saving a preset\" refused while paused) -> updating (executable replaced in the gap) -> resumed (new work accepted; 1s idle expiry ok)"
 echo "All hold checks passed in $RUN"
