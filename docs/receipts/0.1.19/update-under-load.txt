@@ -1,0 +1,31 @@
+Run folder: /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//displays-studio-hold.1NkxsD
+PASS  the updater's credential is accepted; the app's old own-token copy is refused (401)
+PASS  the agent's rotation is followed live: the old token 401s, the new one 200s, no restart
+PASS  held -> paused 120s over live work; safe=false, unsettled=["Refreshing displays (action #1)"]; client round trip 1060 ms
+PASS  real work settled inside the bound (4125 ms); answer safe, ready for updating, nothing cancelled
+PASS  in-flight refresh completed; queued follow-up job ("Saving a preset") refused while paused and explained in panel UI
+PASS  an abandoned hold expired by itself after pause_s
+PASS  the route refuses a missing/wrong token, a GET, an unknown path and a browser origin
+  log: held new work for an update (paused 1 s)
+  log: update hold: not safe in 0 ms (ceiling 0 s, pause 1 s, 1 in flight) — still in flight: Refreshing displays (action #1)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 1 s)
+  log: update hold: not safe in 0 ms (ceiling 0 s, pause 1 s, 1 in flight) — still in flight: Refreshing displays (action #1)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 120 s)
+  log: update hold: not safe in 1009 ms (ceiling 1 s, pause 120 s, 1 in flight) — still in flight: Refreshing displays (action #1)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 120 s)
+  log: update hold: safe in 4072 ms (ceiling 20 s, pause 120 s, 0 in flight) — ready for updating
+  log: update hold: refused "Saving a preset" while paused (115 s left)
+  log: update hold: refused "Saving a preset" while paused (115 s left)
+  log: resumed; new work is accepted again
+  log: held new work for an update (paused 1 s)
+  log: update hold: safe in 0 ms (ceiling 1 s, pause 1 s, 0 in flight) — ready for updating
+  log: the update pause expired; new work is accepted again
+  log: held new work for an update (paused 120 s)
+  log: update hold: safe in 0 ms (ceiling 1 s, pause 120 s, 0 in flight) — ready for updating
+tests/hold.sh: line 72: 65211 Terminated: 15          "$TEST_BIN" --test-mode "$1" >> "$LOG" 2>&1
+PASS  held 120s over live work, the executable was replaced in that gap, and the replaced app relaunched without DELETE -> resumed, new work running
+UPDATE-UNDER-LOAD PASS: credential (updater's file honoured, stale own copy 401, rotation followed live) -> held -> paused 120s (deadline 1s: safe=false, in_flight=1, unsettled=["Refreshing displays (action #1)"]) -> settled 4125ms (safe=true, queued "Saving a preset" refused while paused) -> updating (executable replaced in the gap) -> resumed (new work accepted; 1s idle expiry ok)
+All hold checks passed in /var/folders/qp/64pbc0jn23x2ytbmpzp0rxgm0000gn/T//displays-studio-hold.1NkxsD
